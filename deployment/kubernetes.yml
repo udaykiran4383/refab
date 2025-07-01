@@ -1,0 +1,43 @@
+# Kubernetes deployment configuration
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: refab-api
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: refab-api
+  template:
+    metadata:
+      labels:
+        app: refab-api
+    spec:
+      containers:
+      - name: refab-api
+        image: refab/api:latest
+        ports:
+        - containerPort: 3000
+        env:
+        - name: DATABASE_URL
+          valueFrom:
+            secretKeyRef:
+              name: refab-secrets
+              key: database-url
+        - name: FIREBASE_PROJECT_ID
+          valueFrom:
+            secretKeyRef:
+              name: refab-secrets
+              key: firebase-project-id
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: refab-api-service
+spec:
+  selector:
+    app: refab-api
+  ports:
+  - port: 80
+    targetPort: 3000
+  type: LoadBalancer

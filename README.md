@@ -1,0 +1,281 @@
+# 🌱 ReFab - Textile Waste Recycling App (MVP)
+
+## 🎯 Purpose
+ReFab connects tailors with textile waste to customers who want eco-friendly products, while providing employment to women artisans.
+
+### Core Features:
+- **Tailors**: Request pickup for fabric waste with photos
+- **Customers**: Browse and buy recycled products  
+- **Admin**: Manage requests and add new products
+- **Analytics**: Track environmental impact
+
+## 🛠️ Tech Stack
+
+### Frontend
+- **Flutter 3.16+** - Cross-platform mobile app
+- **Riverpod** - State management
+- **Go Router** - Navigation
+- **Firebase Auth** - Authentication
+
+### Backend
+- **Firebase Firestore** - Database
+- **Firebase Storage** - Image storage
+- **Firebase Auth** - User management
+
+## 📱 Setup Instructions
+
+### Prerequisites
+\`\`\`bash
+# Install Flutter
+flutter --version  # Should be 3.16+
+
+# Install Firebase CLI
+npm install -g firebase-tools
+\`\`\`
+
+### 1. Clone & Setup
+\`\`\`bash
+# Create new Flutter project
+flutter create refab_app
+cd refab_app
+
+# Copy all files from the CodeProject above
+# Replace the generated files with provided code
+
+# Get dependencies
+flutter pub get
+\`\`\`
+
+### 2. Firebase Setup
+
+#### A. Create Firebase Project
+1. Go to [Firebase Console](https://console.firebase.google.com/)
+2. Click "Create a project"
+3. Name it "refab-app"
+4. Enable Google Analytics (optional)
+
+#### B. Enable Services
+In Firebase Console, enable:
+- **Authentication** → Email/Password
+- **Firestore Database** → Start in test mode
+- **Storage** → Start in test mode
+
+#### C. Configure Flutter App
+\`\`\`bash
+# Install FlutterFire CLI
+dart pub global activate flutterfire_cli
+
+# Configure Firebase for your app
+flutterfire configure
+\`\`\`
+
+This will:
+- Create `firebase_options.dart` with your config
+- Update platform-specific files
+- Link your app to Firebase project
+
+#### D. Update Firestore Rules
+In Firebase Console → Firestore → Rules:
+\`\`\`javascript
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Users can read/write their own data
+    match /users/{userId} {
+      allow read, write: if request.auth != null && request.auth.uid == userId;
+    }
+    
+    // Pickup requests - tailors can create, admins can read all
+    match /pickupRequests/{requestId} {
+      allow read, write: if request.auth != null;
+    }
+    
+    // Products - everyone can read, admins can write
+    match /products/{productId} {
+      allow read: if true;
+      allow write: if request.auth != null;
+    }
+  }
+}
+\`\`\`
+
+#### E. Update Storage Rules
+In Firebase Console → Storage → Rules:
+\`\`\`javascript
+rules_version = '2';
+service firebase.storage {
+  match /b/{bucket}/o {
+    match /images/{allPaths=**} {
+      allow read, write: if request.auth != null;
+    }
+  }
+}
+\`\`\`
+
+### 3. Run the App
+
+#### For Web
+\`\`\`bash
+flutter run -d chrome
+\`\`\`
+
+#### For Mobile
+\`\`\`bash
+# List available devices
+flutter devices
+
+# Run on Android
+flutter run -d android
+
+# Run on iOS (Mac only)
+flutter run -d ios
+\`\`\`
+
+### 4. Test User Accounts
+
+Create test accounts with different roles:
+
+1. **Tailor Account**:
+   - Email: `tailor@test.com`
+   - Password: `123456`
+   - Role: Tailor
+
+2. **Customer Account**:
+   - Email: `customer@test.com`
+   - Password: `123456`
+   - Role: Customer
+
+3. **Admin Account**:
+   - Email: `admin@test.com`
+   - Password: `123456`
+   - Role: Admin
+
+## 🚀 How to Use
+
+### As a Tailor:
+1. Register/Login with Tailor role
+2. Go to Dashboard → Pickup Request
+3. Fill fabric details, weight, address
+4. Add photos of fabric waste
+5. Submit request
+6. View previous requests and status
+
+### As a Customer:
+1. Register/Login with Customer role
+2. Go to Dashboard → Browse Products
+3. View eco-friendly products made from recycled fabric
+4. See product details and prices
+
+### As an Admin:
+1. Register/Login with Admin role
+2. Go to Dashboard → Admin Panel
+3. **Analytics Tab**: View app statistics
+4. **Pickup Requests Tab**: Manage and complete requests
+5. **Add Product Tab**: Add new products to catalog
+
+## 📊 Features Implemented
+
+### ✅ Authentication
+- Email/password registration and login
+- Role-based access (Tailor, Customer, Admin)
+- Secure Firebase Auth integration
+
+### ✅ Tailor Module
+- Pickup request form with image upload
+- Real-time status tracking
+- History of all requests
+- Photo documentation
+
+### ✅ Customer Module
+- Product catalog with images
+- Category-based browsing
+- Responsive grid layout
+
+### ✅ Admin Module
+- Analytics dashboard with key metrics
+- Pickup request management
+- Product addition functionality
+- Environmental impact tracking
+
+### ✅ Core Features
+- Real-time data with Firestore
+- Image upload to Firebase Storage
+- Cross-platform (iOS, Android, Web)
+- Beautiful Material Design UI
+
+## 🔧 Troubleshooting
+
+### Common Issues:
+
+#### 1. Firebase Configuration Error
+\`\`\`bash
+# Re-run FlutterFire configuration
+flutterfire configure
+
+# Make sure firebase_options.dart is generated
+\`\`\`
+
+#### 2. Build Errors
+\`\`\`bash
+# Clean and rebuild
+flutter clean
+flutter pub get
+flutter run
+\`\`\`
+
+#### 3. Permission Denied (Firestore)
+- Check Firestore rules are updated
+- Ensure user is authenticated
+- Verify user has correct permissions
+
+#### 4. Image Upload Fails
+- Check Storage rules are updated
+- Ensure user is authenticated
+- Verify internet connection
+
+#### 5. Web Build Issues
+\`\`\`bash
+# Enable web support
+flutter config --enable-web
+flutter create . --platforms web
+\`\`\`
+
+## 📱 Screenshots
+
+The app includes:
+- **Login/Register** screens with role selection
+- **Dashboard** with role-based navigation
+- **Pickup Request** form with image upload
+- **Product Catalog** with beautiful grid layout
+- **Admin Panel** with analytics and management tools
+
+## 🌍 Environmental Impact
+
+Track your contribution:
+- **Waste Recycled**: Total kg of fabric diverted from landfills
+- **Products Created**: Number of eco-friendly items made
+- **Women Employed**: Artisans provided with work opportunities
+
+## 🚀 Next Steps
+
+To extend this MVP:
+1. Add payment gateway integration
+2. Implement push notifications
+3. Add GPS tracking for pickups
+4. Create detailed product pages
+5. Add user reviews and ratings
+6. Implement order management
+7. Add multi-language support
+
+## 📞 Support
+
+If you encounter any issues:
+1. Check this README first
+2. Verify Firebase configuration
+3. Check console logs for errors
+4. Ensure all dependencies are installed
+
+---
+
+**Ready to make a positive environmental impact? Start recycling textile waste with ReFab! 🌱♻️**
+# refab

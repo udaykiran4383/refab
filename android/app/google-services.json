@@ -1,0 +1,47 @@
+{
+  "project_info": {
+    "project_number": "924684180668",
+    "project_id": "refab-app",
+    "storage_bucket": "refab-app.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:924684180668:android:17fa4d73fe37b981f144b9",
+        "android_client_info": {
+          "package_name": "com.refab.app"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "924684180668-17fa4d73fe37b981f144b9.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.refab.app",
+            "certificate_hash": "17:EB:90:4F:65:62:D9:1A:5A:86:A3:92:B6:B5:7E:92:26:45:12:CE"
+          }
+        },
+        {
+          "client_id": "924684180668-17fa4d73fe37b981f144b9.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDlePAsvJ0L3IwAMh7dalBGKFa7czfqxDQ"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "924684180668-17fa4d73fe37b981f144b9.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
