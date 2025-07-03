@@ -1,7 +1,9 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
-import '../models/user_model.dart';
+import '../../../auth/data/models/user_model.dart';
 import '../models/analytics_model.dart';
 import '../models/system_config_model.dart';
+import '../models/notification_model.dart';
+import '../models/report_model.dart';
 
 class AdminRepository {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
@@ -319,5 +321,309 @@ class AdminRepository {
       'roleDistribution': roleDistribution,
       'activationRate': totalUsers > 0 ? (activeUsers / totalUsers) * 100 : 0,
     };
+  }
+
+  // Enhanced Notification Management
+  Stream<List<NotificationModel>> getAllNotifications() {
+    return _firestore
+        .collection('notifications')
+        .orderBy('createdAt', descending: true)
+        .snapshots()
+        .map((snapshot) => snapshot.docs
+            .map((doc) => NotificationModel.fromJson({
+                  ...doc.data(),
+                  'id': doc.id,
+                }))
+            .toList());
+  }
+
+  Stream<List<NotificationModel>> getNotificationsByType(String type) {
+    return _firestore
+        .collection('notifications')
+        .where('type', isEqualTo: type)
+        .orderBy('createdAt', descending: true)
+        .snapshots()
+        .map((snapshot) => snapshot.docs
+            .map((doc) => NotificationModel.fromJson({
+                  ...doc.data(),
+                  'id': doc.id,
+                }))
+            .toList());
+  }
+
+  Stream<List<NotificationModel>> getNotificationsForUser(String userId) {
+    return _firestore
+        .collection('notifications')
+        .where('userId', isEqualTo: userId)
+        .orderBy('createdAt', descending: true)
+        .snapshots()
+        .map((snapshot) => snapshot.docs
+            .map((doc) => NotificationModel.fromJson({
+                  ...doc.data(),
+                  'id': doc.id,
+                }))
+            .toList());
+  }
+
+  Future<void> markNotificationAsRead(String notificationId) async {
+    try {
+      await _firestore.collection('notifications').doc(notificationId).update({
+        'isRead': true,
+        'readAt': DateTime.now().toIso8601String(),
+      });
+    } catch (e) {
+      throw Exception('Failed to mark notification as read: $e');
+    }
+  }
+
+  Future<void> deleteNotification(String notificationId) async {
+    try {
+      await _firestore.collection('notifications').doc(notificationId).delete();
+    } catch (e) {
+      throw Exception('Failed to delete notification: $e');
+    }
+  }
+
+  // Enhanced Report Management
+  Future<List<ReportModel>> getAllReports() async {
+    try {
+      final snapshot = await _firestore
+          .collection('reports')
+          .orderBy('generatedAt', descending: true)
+          .get();
+
+      return snapshot.docs
+          .map((doc) => ReportModel.fromJson({
+                ...doc.data(),
+                'id': doc.id,
+              }))
+          .toList();
+    } catch (e) {
+      throw Exception('Failed to get reports: $e');
+    }
+  }
+
+  Future<List<ReportModel>> getReportsByType(String reportType) async {
+    try {
+      final snapshot = await _firestore
+          .collection('reports')
+          .where('reportType', isEqualTo: reportType)
+          .orderBy('generatedAt', descending: true)
+          .get();
+
+      return snapshot.docs
+          .map((doc) => ReportModel.fromJson({
+                ...doc.data(),
+                'id': doc.id,
+              }))
+          .toList();
+    } catch (e) {
+      throw Exception('Failed to get reports by type: $e');
+    }
+  }
+
+  Future<void> saveReport(ReportModel report) async {
+    try {
+      await _firestore.collection('reports').doc(report.id).set(report.toJson());
+    } catch (e) {
+      throw Exception('Failed to save report: $e');
+    }
+  }
+
+  Future<void> deleteReport(String reportId) async {
+    try {
+      await _firestore.collection('reports').doc(reportId).delete();
+    } catch (e) {
+      throw Exception('Failed to delete report: $e');
+    }
+  }
+
+  // Product Management
+  Stream<List<Map<String, dynamic>>> getAllProducts() {
+    return _firestore
+        .collection('products')
+        .orderBy('createdAt', descending: true)
+        .snapshots()
+        .map((snapshot) => snapshot.docs
+            .map((doc) => {
+                  ...doc.data(),
+                  'id': doc.id,
+                })
+            .toList());
+  }
+
+  Future<void> addProduct(Map<String, dynamic> productData) async {
+    try {
+      await _firestore.collection('products').add({
+        ...productData,
+        'createdAt': DateTime.now().toIso8601String(),
+        'updatedAt': DateTime.now().toIso8601String(),
+      });
+    } catch (e) {
+      throw Exception('Failed to add product: $e');
+    }
+  }
+
+  Future<void> updateProduct(String productId, Map<String, dynamic> updates) async {
+    try {
+      await _firestore.collection('products').doc(productId).update({
+        ...updates,
+        'updatedAt': DateTime.now().toIso8601String(),
+      });
+    } catch (e) {
+      throw Exception('Failed to update product: $e');
+    }
+  }
+
+  Future<void> deleteProduct(String productId) async {
+    try {
+      await _firestore.collection('products').doc(productId).delete();
+    } catch (e) {
+      throw Exception('Failed to delete product: $e');
+    }
+  }
+
+  // Order Management
+  Stream<List<Map<String, dynamic>>> getAllOrders() {
+    return _firestore
+        .collection('orders')
+        .orderBy('orderDate', descending: true)
+        .snapshots()
+        .map((snapshot) => snapshot.docs
+            .map((doc) => {
+                  ...doc.data(),
+                  'id': doc.id,
+                })
+            .toList());
+  }
+
+  Future<void> updateOrderStatus(String orderId, String status) async {
+    try {
+      await _firestore.collection('orders').doc(orderId).update({
+        'status': status,
+        'updatedAt': DateTime.now().toIso8601String(),
+      });
+    } catch (e) {
+      throw Exception('Failed to update order status: $e');
+    }
+  }
+
+  // Pickup Request Management
+  Stream<List<Map<String, dynamic>>> getAllPickupRequests() {
+    return _firestore
+        .collection('pickupRequests')
+        .orderBy('createdAt', descending: true)
+        .snapshots()
+        .map((snapshot) => snapshot.docs
+            .map((doc) => {
+                  ...doc.data(),
+                  'id': doc.id,
+                })
+            .toList());
+  }
+
+  Future<void> updatePickupStatus(String pickupId, String status) async {
+    try {
+      await _firestore.collection('pickupRequests').doc(pickupId).update({
+        'status': status,
+        'updatedAt': DateTime.now().toIso8601String(),
+      });
+    } catch (e) {
+      throw Exception('Failed to update pickup status: $e');
+    }
+  }
+
+  Future<void> assignPickupToVolunteer(String pickupId, String volunteerId) async {
+    try {
+      await _firestore.collection('pickupRequests').doc(pickupId).update({
+        'assignedVolunteerId': volunteerId,
+        'status': 'assigned',
+        'updatedAt': DateTime.now().toIso8601String(),
+      });
+    } catch (e) {
+      throw Exception('Failed to assign pickup: $e');
+    }
+  }
+
+  // System Health Monitoring
+  Future<Map<String, dynamic>> getSystemHealth() async {
+    try {
+      final users = await _firestore.collection('users').get();
+      final pickupRequests = await _firestore.collection('pickupRequests').get();
+      final orders = await _firestore.collection('orders').get();
+      final products = await _firestore.collection('products').get();
+
+      final now = DateTime.now();
+      final last24Hours = now.subtract(const Duration(hours: 24));
+
+      final recentUsers = users.docs
+          .where((doc) => DateTime.parse(doc.data()['createdAt']).isAfter(last24Hours))
+          .length;
+
+      final recentPickups = pickupRequests.docs
+          .where((doc) => DateTime.parse(doc.data()['createdAt']).isAfter(last24Hours))
+          .length;
+
+      final recentOrders = orders.docs
+          .where((doc) => DateTime.parse(doc.data()['orderDate']).isAfter(last24Hours))
+          .length;
+
+      final pendingPickups = pickupRequests.docs
+          .where((doc) => doc.data()['status'] == 'pending')
+          .length;
+
+      final pendingOrders = orders.docs
+          .where((doc) => doc.data()['status'] == 'pending')
+          .length;
+
+      return {
+        'totalUsers': users.docs.length,
+        'totalPickupRequests': pickupRequests.docs.length,
+        'totalOrders': orders.docs.length,
+        'totalProducts': products.docs.length,
+        'recentUsers': recentUsers,
+        'recentPickups': recentPickups,
+        'recentOrders': recentOrders,
+        'pendingPickups': pendingPickups,
+        'pendingOrders': pendingOrders,
+        'systemStatus': 'healthy',
+        'lastUpdated': now.toIso8601String(),
+      };
+    } catch (e) {
+      throw Exception('Failed to get system health: $e');
+    }
+  }
+
+  // Backup and Maintenance
+  Future<void> createSystemBackup() async {
+    try {
+      final backupData = {
+        'timestamp': DateTime.now().toIso8601String(),
+        'type': 'system_backup',
+        'collections': ['users', 'pickupRequests', 'orders', 'products', 'notifications'],
+      };
+
+      await _firestore.collection('systemBackups').add(backupData);
+    } catch (e) {
+      throw Exception('Failed to create system backup: $e');
+    }
+  }
+
+  Future<List<Map<String, dynamic>>> getSystemBackups() async {
+    try {
+      final snapshot = await _firestore
+          .collection('systemBackups')
+          .orderBy('timestamp', descending: true)
+          .get();
+
+      return snapshot.docs
+          .map((doc) => {
+                ...doc.data(),
+                'id': doc.id,
+              })
+          .toList();
+    } catch (e) {
+      throw Exception('Failed to get system backups: $e');
+    }
   }
 } 

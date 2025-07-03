@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../data/models/user_model.dart';
-import '../providers/auth_provider.dart';
+import '../../providers/auth_provider.dart';
 
 class RegisterForm extends ConsumerStatefulWidget {
   const RegisterForm({super.key});
@@ -19,11 +19,10 @@ class _RegisterFormState extends ConsumerState<RegisterForm> {
   final _addressController = TextEditingController();
   UserRole _selectedRole = UserRole.customer;
   bool _obscurePassword = true;
+  bool _isLoading = false;
 
   @override
   Widget build(BuildContext context) {
-    final loginState = ref.watch(loginProvider);
-
     return Form(
       key: _formKey,
       child: Column(
@@ -129,20 +128,11 @@ class _RegisterFormState extends ConsumerState<RegisterForm> {
           ),
           const SizedBox(height: 24),
           ElevatedButton(
-            onPressed: loginState.isLoading ? null : _handleRegister,
-            child: loginState.isLoading
+            onPressed: _isLoading ? null : _handleRegister,
+            child: _isLoading
                 ? const CircularProgressIndicator()
                 : const Text('Register'),
           ),
-          if (loginState.hasError)
-            Padding(
-              padding: const EdgeInsets.only(top: 16),
-              child: Text(
-                loginState.error.toString(),
-                style: TextStyle(color: Theme.of(context).colorScheme.error),
-                textAlign: TextAlign.center,
-              ),
-            ),
         ],
       ),
     );
@@ -165,18 +155,61 @@ class _RegisterFormState extends ConsumerState<RegisterForm> {
     }
   }
 
-  void _handleRegister() {
+  Future<void> _handleRegister() async {
     if (_formKey.currentState!.validate()) {
-      ref.read(loginProvider.notifier).register(
-        email: _emailController.text.trim(),
-        password: _passwordController.text,
-        name: _nameController.text.trim(),
-        phone: _phoneController.text.trim(),
-        role: _selectedRole,
-        address: _addressController.text.trim().isEmpty 
-            ? null 
-            : _addressController.text.trim(),
-      );
+      setState(() {
+        _isLoading = true;
+      });
+      
+      try {
+        print('📝 [REGISTER_FORM] Attempting registration with role: $_selectedRole');
+        final user = await ref.read(authServiceProvider).registerWithEmailAndPassword(
+          email: _emailController.text.trim(),
+          password: _passwordController.text,
+          name: _nameController.text.trim(),
+          phone: _phoneController.text.trim(),
+          role: _selectedRole,
+          address: _addressController.text.trim().isEmpty ? null : _addressController.text.trim(),
+        );
+        
+        if (user != null) {
+          print('📝 [REGISTER_FORM] ✅ Registration successful: ${user.name} (${user.role})');
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text('Welcome to ReFab, ${user.name}!'),
+                backgroundColor: Colors.green,
+              ),
+            );
+          }
+        } else {
+          print('📝 [REGISTER_FORM] ❌ Registration failed');
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('Registration failed. Please try again.'),
+                backgroundColor: Colors.red,
+              ),
+            );
+          }
+        }
+      } catch (e) {
+        print('📝 [REGISTER_FORM] ❌ Registration error: $e');
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Error: $e'),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
+      } finally {
+        if (mounted) {
+          setState(() {
+            _isLoading = false;
+          });
+        }
+      }
     }
   }
 

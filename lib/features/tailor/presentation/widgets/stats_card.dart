@@ -5,6 +5,7 @@ class StatsCard extends StatelessWidget {
   final String value;
   final IconData icon;
   final Color color;
+  final String? subtitle;
 
   const StatsCard({
     super.key,
@@ -12,11 +13,14 @@ class StatsCard extends StatelessWidget {
     required this.value,
     required this.icon,
     required this.color,
+    this.subtitle,
   });
 
   @override
   Widget build(BuildContext context) {
     return Card(
+      elevation: 2,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       child: Padding(
         padding: const EdgeInsets.all(16),
         child: Column(
@@ -40,8 +44,19 @@ class StatsCard extends StatelessWidget {
               title,
               style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                 color: Colors.grey[600],
+                fontWeight: FontWeight.w500,
               ),
             ),
+            if (subtitle != null) ...[
+              const SizedBox(height: 4),
+              Text(
+                subtitle!,
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                  color: Colors.grey[500],
+                  fontSize: 11,
+                ),
+              ),
+            ],
           ],
         ),
       ),

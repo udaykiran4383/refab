@@ -171,15 +171,15 @@ class CustomerDashboard extends ConsumerWidget {
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 8),
                 child: SizedBox(
-                  height: 260,
+                  height: 280,
                   child: GridView.builder(
                     shrinkWrap: true,
                     physics: const NeverScrollableScrollPhysics(),
                     gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
                       crossAxisCount: 2,
                       childAspectRatio: 0.75,
-                      crossAxisSpacing: 12,
-                      mainAxisSpacing: 12,
+                      crossAxisSpacing: 8,
+                      mainAxisSpacing: 8,
                     ),
                     itemCount: 6,
                     itemBuilder: (context, index) {
@@ -189,23 +189,23 @@ class CustomerDashboard extends ConsumerWidget {
                           'Recycled Toy Bear',
                           'Wall Hanging',
                           'Cotton Scarf',
-                          'Laptop Sleeve',
-                          'Decorative Cushion'
+                          'Decorative Cushion',
+                          'Recycled Notebook',
                         ][index],
-                        price: [299, 199, 149, 249, 399, 179][index].toDouble(),
-                        imageUrl: '/placeholder.svg?height=200&width=200',
-                        rating: [4.5, 4.2, 4.8, 4.1, 4.6, 4.3][index],
+                        price: [299.0, 199.0, 149.0, 99.0, 179.0, 49.0][index],
+                        imageUrl: [
+                          'https://picsum.photos/200/200?random=1',
+                          'https://picsum.photos/200/200?random=2',
+                          'https://picsum.photos/200/200?random=3',
+                          'https://picsum.photos/200/200?random=4',
+                          'https://picsum.photos/200/200?random=5',
+                          'https://picsum.photos/200/200?random=6',
+                        ][index],
                         onTap: () {
                           // Navigate to product details
                         },
                         onAddToCart: () {
-                          // Add to cart
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(
-                              content: Text('Added to cart!'),
-                              duration: Duration(seconds: 1),
-                            ),
-                          );
+                          // Add to cart functionality
                         },
                       );
                     },

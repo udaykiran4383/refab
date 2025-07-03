@@ -1,51 +1,23 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../providers/cart_provider.dart';
 
-class CartPage extends StatefulWidget {
+class CartPage extends ConsumerWidget {
   const CartPage({super.key});
 
   @override
-  State<CartPage> createState() => _CartPageState();
-}
+  Widget build(BuildContext context, WidgetRef ref) {
+    final cartItems = ref.watch(cartProvider);
+    final items = cartItems.values.toList();
+    final subtotal = items.fold<double>(0, (sum, item) => sum + (item['product'].price * item['quantity']));
+    final shipping = items.isEmpty ? 0 : 50;
+    final total = subtotal + shipping;
 
-class _CartPageState extends State<CartPage> {
-  final List<CartItem> _cartItems = [
-    CartItem(
-      id: '1',
-      name: 'Eco Tote Bag',
-      price: 299,
-      quantity: 2,
-      imageUrl: '/placeholder.svg?height=100&width=100',
-    ),
-    CartItem(
-      id: '2',
-      name: 'Recycled Toy Bear',
-      price: 199,
-      quantity: 1,
-      imageUrl: '/placeholder.svg?height=100&width=100',
-    ),
-    CartItem(
-      id: '3',
-      name: 'Wall Hanging',
-      price: 149,
-      quantity: 1,
-      imageUrl: '/placeholder.svg?height=100&width=100',
-    ),
-  ];
-
-  double get _subtotal {
-    return _cartItems.fold(0, (sum, item) => sum + (item.price * item.quantity));
-  }
-
-  double get _shipping => 50;
-  double get _total => _subtotal + _shipping;
-
-  @override
-  Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Cart'),
       ),
-      body: _cartItems.isEmpty
+      body: items.isEmpty
           ? Center(
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
@@ -63,9 +35,11 @@ class _CartPageState extends State<CartPage> {
                 Expanded(
                   child: ListView.builder(
                     padding: const EdgeInsets.all(16),
-                    itemCount: _cartItems.length,
+                    itemCount: items.length,
                     itemBuilder: (context, index) {
-                      final item = _cartItems[index];
+                      final item = items[index];
+                      final product = item['product'];
+                      final quantity = item['quantity'] as int;
                       return Card(
                         margin: const EdgeInsets.only(bottom: 12),
                         child: Padding(
@@ -75,7 +49,7 @@ class _CartPageState extends State<CartPage> {
                               ClipRRect(
                                 borderRadius: BorderRadius.circular(8),
                                 child: Image.network(
-                                  item.imageUrl,
+                                  product.imageUrl,
                                   width: 60,
                                   height: 60,
                                   fit: BoxFit.cover,
@@ -95,28 +69,20 @@ class _CartPageState extends State<CartPage> {
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
                                     Text(
-                                      item.name,
+                                      product.name,
                                       style: Theme.of(context).textTheme.titleMedium,
                                     ),
                                     const SizedBox(height: 4),
                                     Text(
-                                      '₹${item.price}',
+                                      '₹${product.price}',
                                       style: Theme.of(context).textTheme.titleSmall?.copyWith(
                                         color: Theme.of(context).primaryColor,
                                         fontWeight: FontWeight.bold,
                                       ),
                                     ),
+                                    Text('x$quantity'),
                                   ],
                                 ),
-                              ),
-                              IconButton(
-                                onPressed: () {
-                                  setState(() {
-                                    _cartItems.removeAt(index);
-                                  });
-                                },
-                                icon: const Icon(Icons.delete_outline),
-                                color: Colors.red,
                               ),
                             ],
                           ),
@@ -144,7 +110,7 @@ class _CartPageState extends State<CartPage> {
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
                           const Text('Subtotal'),
-                          Text('₹${_subtotal.toInt()}'),
+                          Text('₹${subtotal.toInt()}'),
                         ],
                       ),
                       const SizedBox(height: 8),
@@ -152,7 +118,7 @@ class _CartPageState extends State<CartPage> {
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
                           const Text('Shipping'),
-                          Text('₹${_shipping.toInt()}'),
+                          Text('₹${shipping.toInt()}'),
                         ],
                       ),
                       const Divider(),
@@ -166,7 +132,7 @@ class _CartPageState extends State<CartPage> {
                             ),
                           ),
                           Text(
-                            '₹${_total.toInt()}',
+                            '₹${total.toInt()}',
                             style: Theme.of(context).textTheme.titleMedium?.copyWith(
                               fontWeight: FontWeight.bold,
                               color: Theme.of(context).primaryColor,
@@ -180,7 +146,7 @@ class _CartPageState extends State<CartPage> {
                         child: ElevatedButton(
                           onPressed: () {
                             // Navigate to checkout
-                            _showCheckoutDialog();
+                            _showCheckoutDialog(context);
                           },
                           style: ElevatedButton.styleFrom(
                             padding: const EdgeInsets.symmetric(vertical: 16),
@@ -196,7 +162,7 @@ class _CartPageState extends State<CartPage> {
     );
   }
 
-  void _showCheckoutDialog() {
+  void _showCheckoutDialog(BuildContext context) {
     showDialog(
       context: context,
       builder: (context) {
@@ -217,9 +183,7 @@ class _CartPageState extends State<CartPage> {
                     backgroundColor: Colors.green,
                   ),
                 );
-                setState(() {
-                  _cartItems.clear();
-                });
+                // Optionally clear cart here
               },
               child: const Text('Pay Now'),
             ),
@@ -228,20 +192,4 @@ class _CartPageState extends State<CartPage> {
       },
     );
   }
-}
-
-class CartItem {
-  final String id;
-  final String name;
-  final double price;
-  int quantity;
-  final String imageUrl;
-
-  CartItem({
-    required this.id,
-    required this.name,
-    required this.price,
-    required this.quantity,
-    required this.imageUrl,
-  });
 }

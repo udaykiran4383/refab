@@ -50,7 +50,7 @@ class LoginNotifier extends StateNotifier<AsyncValue<UserModel?>> {
   }) async {
     state = const AsyncValue.loading();
     try {
-      final user = await _authRepository.registerWithEmailAndPassword(
+      final user = await _authRepository.register(
         email: email,
         password: password,
         name: name,

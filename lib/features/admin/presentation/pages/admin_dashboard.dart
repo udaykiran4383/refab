@@ -4,6 +4,7 @@ import '../../../auth/data/models/user_model.dart';
 import '../../../auth/providers/auth_provider.dart';
 import '../widgets/analytics_card.dart';
 import '../widgets/user_management_card.dart';
+import '../../../customer/presentation/pages/profile_page.dart';
 
 class AdminDashboard extends ConsumerWidget {
   final UserModel user;
@@ -35,9 +36,9 @@ class AdminDashboard extends ConsumerWidget {
               if (value == 'logout') {
                 ref.read(authServiceProvider).signOut();
               } else if (value == 'profile') {
-                // TODO: Navigate to profile page
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Profile page coming soon!')),
+                print('👑 [ADMIN_DASHBOARD] Navigating to ProfilePage');
+                Navigator.of(context).push(
+                  MaterialPageRoute(builder: (context) => const ProfilePage()),
                 );
               } else if (value == 'settings') {
                 // TODO: Navigate to settings page

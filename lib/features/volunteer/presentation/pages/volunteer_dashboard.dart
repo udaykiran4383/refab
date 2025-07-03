@@ -4,6 +4,7 @@ import '../../../auth/data/models/user_model.dart';
 import '../../../auth/presentation/providers/auth_provider.dart';
 import '../widgets/hour_logging_card.dart';
 import '../widgets/progress_card.dart';
+import '../../../customer/presentation/pages/profile_page.dart';
 
 class VolunteerDashboard extends ConsumerWidget {
   final UserModel user;
@@ -44,9 +45,9 @@ class VolunteerDashboard extends ConsumerWidget {
               if (value == 'logout') {
                 ref.read(loginProvider.notifier).signOut();
               } else if (value == 'profile') {
-                // TODO: Navigate to profile page
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Profile page coming soon!')),
+                print('🤝 [VOLUNTEER_DASHBOARD] Navigating to ProfilePage');
+                Navigator.of(context).push(
+                  MaterialPageRoute(builder: (context) => const ProfilePage()),
                 );
               } else if (value == 'certificates') {
                 // TODO: Navigate to certificates page

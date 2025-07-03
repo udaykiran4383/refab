@@ -7,6 +7,9 @@ import '../features/dashboard/pages/dashboard_page.dart';
 import '../features/tailor/pages/pickup_request_page.dart';
 import '../features/customer/pages/products_page.dart';
 import '../features/admin/pages/admin_page.dart';
+import '../features/customer/presentation/pages/profile_page.dart';
+import '../features/customer/presentation/pages/my_orders_page.dart';
+import '../features/customer/presentation/pages/cart_page.dart';
 import 'theme.dart';
 
 class ReFabApp extends ConsumerWidget {
@@ -29,12 +32,14 @@ class ReFabApp extends ConsumerWidget {
   GoRouter _createRouter(AsyncValue authState) {
     print('🛣️ [ROUTER] Creating GoRouter with auth state: $authState');
     return GoRouter(
-      initialLocation: '/',
+      initialLocation: '/login',
       redirect: (context, state) {
         print('🛣️ [ROUTER] Redirect called for path: \\${state.uri.path}');
         return authState.when(
           data: (user) {
             print('🛣️ [ROUTER] Auth state data - User: \\${user?.name ?? 'null'} (\\${user?.email ?? 'null'})');
+            print('🛣️ [ROUTER] User role: ${user?.role ?? 'null'}');
+            
             if (user == null && state.uri.path != '/login') {
               print('🛣️ [ROUTER] ⚠️ No user, redirecting to /login');
               return '/login';
@@ -66,13 +71,6 @@ class ReFabApp extends ConsumerWidget {
           },
         ),
         GoRoute(
-          path: '/',
-          redirect: (context, state) {
-            print('🛣️ [ROUTER] Redirecting / to /dashboard');
-            return '/dashboard';
-          },
-        ),
-        GoRoute(
           path: '/dashboard',
           builder: (context, state) {
             print('🛣️ [ROUTER] Building DashboardPage');
@@ -80,17 +78,38 @@ class ReFabApp extends ConsumerWidget {
           },
         ),
         GoRoute(
-          path: '/pickup-request',
-          builder: (context, state) {
-            print('🛣️ [ROUTER] Building PickupRequestPage');
-            return const PickupRequestPage();
-          },
-        ),
-        GoRoute(
           path: '/products',
           builder: (context, state) {
             print('🛣️ [ROUTER] Building ProductsPage');
             return const ProductsPage();
+          },
+        ),
+        GoRoute(
+          path: '/profile',
+          builder: (context, state) {
+            print('🛣️ [ROUTER] Building ProfilePage');
+            return const ProfilePage();
+          },
+        ),
+        GoRoute(
+          path: '/orders',
+          builder: (context, state) {
+            print('🛣️ [ROUTER] Building MyOrdersPage');
+            return const MyOrdersPage();
+          },
+        ),
+        GoRoute(
+          path: '/cart',
+          builder: (context, state) {
+            print('🛣️ [ROUTER] Building CartPage');
+            return const CartPage();
+          },
+        ),
+        GoRoute(
+          path: '/pickup-request',
+          builder: (context, state) {
+            print('🛣️ [ROUTER] Building PickupRequestPage');
+            return const PickupRequestPage();
           },
         ),
         GoRoute(

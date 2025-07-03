@@ -8,10 +8,12 @@ class FirestoreService {
 
   // Users
   static Future<void> createUser(UserModel user) async {
-    print('🔥 [FIRESTORE] Creating user: \\${user.name} (\\${user.email})');
+    print('🔥 [FIRESTORE] Creating user: ${user.name} (${user.email}), role: ${user.role}');
     try {
-      await _db.collection('users').doc(user.id).set(user.toJson());
-      print('🔥 [FIRESTORE] ✅ User created successfully in Firestore');
+      final userData = user.toJson();
+      print('🔥 [FIRESTORE] User data to save: $userData');
+      await _db.collection('users').doc(user.id).set(userData);
+      print('🔥 [FIRESTORE] ✅ User created successfully in Firestore with role: ${user.role}');
     } catch (e) {
       print('🔥 [FIRESTORE] ❌ Error creating user: $e');
       throw e;
@@ -23,8 +25,16 @@ class FirestoreService {
     try {
       final doc = await _db.collection('users').doc(userId).get();
       if (doc.exists) {
-        final user = UserModel.fromJson(doc.data()!);
-        print('🔥 [FIRESTORE] ✅ User found: \\${user.name} (\\${user.email})');
+        final data = doc.data()!;
+        print('🔥 [FIRESTORE] ✅ User document found. Data: $data');
+        
+        // Ensure the data has the required fields
+        if (data['id'] == null) {
+          data['id'] = userId; // Add ID if missing
+        }
+        
+        final user = UserModel.fromJson(data);
+        print('🔥 [FIRESTORE] ✅ User loaded: ${user.name} (${user.email}), role: ${user.role}');
         return user;
       } else {
         print('🔥 [FIRESTORE] ⚠️ User document does not exist for ID: $userId');
@@ -49,14 +59,12 @@ class FirestoreService {
 
   // Development cleanup method - use with caution!
   static Future<void> deleteAllUsers() async {
-    print('🔥 [FIRESTORE] Deleting all users...');
+    print('🔥 [FIRESTORE] ⚠️ Deleting all users (development only)');
     try {
-      final users = await _db.collection('users').get();
-      print('🔥 [FIRESTORE] Found ${users.docs.length} users to delete');
-      
+      final querySnapshot = await _db.collection('users').get();
       final batch = _db.batch();
       
-      for (var doc in users.docs) {
+      for (final doc in querySnapshot.docs) {
         batch.delete(doc.reference);
       }
       
@@ -98,9 +106,14 @@ class FirestoreService {
   }
 
   // Pickup Requests
-  static Future<String> createPickupRequest(PickupRequestModel request) async {
-    final docRef = await _db.collection('pickupRequests').add(request.toJson());
-    return docRef.id;
+  static Future<void> createPickupRequest(PickupRequestModel request) async {
+    try {
+      await _db.collection('pickupRequests').doc(request.id).set(request.toJson());
+      print('🔥 [FIRESTORE] ✅ Pickup request created successfully');
+    } catch (e) {
+      print('🔥 [FIRESTORE] ❌ Error creating pickup request: $e');
+      throw e;
+    }
   }
 
   static Stream<List<PickupRequestModel>> getPickupRequests(String tailorId) {
@@ -137,23 +150,107 @@ class FirestoreService {
   }
 
   // Products
-  static Future<String> createProduct(ProductModel product) async {
-    final docRef = await _db.collection('products').add(product.toJson());
-    return docRef.id;
+  static Future<List<ProductModel>> getProducts() async {
+    try {
+      final querySnapshot = await _db.collection('products').get();
+      return querySnapshot.docs
+          .map((doc) => ProductModel.fromJson({
+                ...doc.data(),
+                'id': doc.id,
+              }))
+          .toList();
+    } catch (e) {
+      print('🔥 [FIRESTORE] ❌ Error fetching products: $e');
+      // Return mock data for now
+      return [
+        ProductModel(
+          id: '1',
+          name: 'Eco Tote Bag',
+          description: 'Sustainable cotton tote bag',
+          price: 299.0,
+          imageUrl: 'https://picsum.photos/200/200?random=1',
+          category: 'Bags',
+          isAvailable: true,
+          rating: 4.5,
+          createdAt: DateTime.now(),
+        ),
+        ProductModel(
+          id: '2',
+          name: 'Recycled Toy Bear',
+          description: 'Soft toy made from recycled materials',
+          price: 199.0,
+          imageUrl: 'https://picsum.photos/200/200?random=2',
+          category: 'Toys',
+          isAvailable: true,
+          rating: 4.2,
+          createdAt: DateTime.now(),
+        ),
+        ProductModel(
+          id: '3',
+          name: 'Wall Hanging',
+          description: 'Beautiful wall decoration',
+          price: 149.0,
+          imageUrl: 'https://picsum.photos/200/200?random=3',
+          category: 'Decor',
+          isAvailable: true,
+          rating: 4.0,
+          createdAt: DateTime.now(),
+        ),
+        ProductModel(
+          id: '4',
+          name: 'Cotton Scarf',
+          description: 'Handwoven cotton scarf',
+          price: 99.0,
+          imageUrl: 'https://picsum.photos/200/200?random=4',
+          category: 'Clothing',
+          isAvailable: true,
+          rating: 4.3,
+          createdAt: DateTime.now(),
+        ),
+        ProductModel(
+          id: '5',
+          name: 'Decorative Cushion',
+          description: 'Eco-friendly cushion cover',
+          price: 179.0,
+          imageUrl: 'https://picsum.photos/200/200?random=5',
+          category: 'Home',
+          isAvailable: true,
+          rating: 4.1,
+          createdAt: DateTime.now(),
+        ),
+        ProductModel(
+          id: '6',
+          name: 'Recycled Notebook',
+          description: 'Notebook made from recycled paper',
+          price: 49.0,
+          imageUrl: 'https://picsum.photos/200/200?random=6',
+          category: 'Stationery',
+          isAvailable: true,
+          rating: 4.4,
+          createdAt: DateTime.now(),
+        ),
+        ProductModel(
+          id: '7',
+          name: 'Bamboo Water Bottle',
+          description: 'Sustainable bamboo water bottle',
+          price: 399.0,
+          imageUrl: 'https://picsum.photos/200/200?random=7',
+          category: 'Kitchen',
+          isAvailable: true,
+          rating: 4.6,
+          createdAt: DateTime.now(),
+        ),
+      ];
+    }
   }
 
-  static Stream<List<ProductModel>> getProducts() {
-    return _db
-        .collection('products')
-        .where('isAvailable', isEqualTo: true)
-        .orderBy('createdAt', descending: true)
-        .snapshots()
-        .map((snapshot) => snapshot.docs
-            .map((doc) => ProductModel.fromJson({
-                  ...doc.data(),
-                  'id': doc.id,
-                }))
-            .toList());
+  static Future<void> createProduct(ProductModel product) async {
+    try {
+      await _db.collection('products').doc(product.id).set(product.toJson());
+    } catch (e) {
+      print('Error creating product: $e');
+      rethrow;
+    }
   }
 
   // Analytics

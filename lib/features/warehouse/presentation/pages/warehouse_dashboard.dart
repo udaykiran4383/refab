@@ -4,6 +4,7 @@ import '../../../auth/data/models/user_model.dart';
 import '../../../auth/providers/auth_provider.dart';
 import '../widgets/inventory_card.dart';
 import '../widgets/worker_task_card.dart';
+import '../../../customer/presentation/pages/profile_page.dart';
 
 class WarehouseDashboard extends ConsumerWidget {
   final UserModel user;
@@ -31,9 +32,9 @@ class WarehouseDashboard extends ConsumerWidget {
               if (value == 'logout') {
                 ref.read(authServiceProvider).signOut();
               } else if (value == 'profile') {
-                // TODO: Navigate to profile page
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Profile page coming soon!')),
+                print('📦 [WAREHOUSE_DASHBOARD] Navigating to ProfilePage');
+                Navigator.of(context).push(
+                  MaterialPageRoute(builder: (context) => const ProfilePage()),
                 );
               }
             },
