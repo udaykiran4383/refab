@@ -27,10 +27,7 @@ class DefaultFirebaseOptions {
       case TargetPlatform.macOS:
         return macos;
       case TargetPlatform.windows:
-        throw UnsupportedError(
-          'DefaultFirebaseOptions have not been configured for windows - '
-          'you can reconfigure this by running the FlutterFire CLI again.',
-        );
+        return windows;
       case TargetPlatform.linux:
         throw UnsupportedError(
           'DefaultFirebaseOptions have not been configured for linux - '
@@ -44,37 +41,49 @@ class DefaultFirebaseOptions {
   }
 
   static const FirebaseOptions web = FirebaseOptions(
-    apiKey: 'your-web-api-key',
-    appId: 'your-web-app-id',
-    messagingSenderId: 'your-sender-id',
-    projectId: 'your-project-id',
-    authDomain: 'your-project.firebaseapp.com',
-    storageBucket: 'your-project.appspot.com',
+    apiKey: 'AIzaSyCFy8Q8SWWiGQ4lh1yON0dxn0jVy5Lq8nk',
+    appId: '1:924684180668:web:4aea87a38556d3e0f144b9',
+    messagingSenderId: '924684180668',
+    projectId: 'refab-app',
+    authDomain: 'refab-app.firebaseapp.com',
+    storageBucket: 'refab-app.firebasestorage.app',
+    measurementId: 'G-6C6E0JD1EP',
   );
 
   static const FirebaseOptions android = FirebaseOptions(
-    apiKey: 'your-android-api-key',
-    appId: 'your-android-app-id',
-    messagingSenderId: 'your-sender-id',
-    projectId: 'your-project-id',
-    storageBucket: 'your-project.appspot.com',
+    apiKey: 'AIzaSyDlePAsvJ0L3IwAMh7dalBGKFa7czfqxDQ',
+    appId: '1:924684180668:android:17fa4d73fe37b981f144b9',
+    messagingSenderId: '924684180668',
+    projectId: 'refab-app',
+    storageBucket: 'refab-app.firebasestorage.app',
   );
 
   static const FirebaseOptions ios = FirebaseOptions(
-    apiKey: 'your-ios-api-key',
-    appId: 'your-ios-app-id',
-    messagingSenderId: 'your-sender-id',
-    projectId: 'your-project-id',
-    storageBucket: 'your-project.appspot.com',
-    iosBundleId: 'com.refab.app',
+    apiKey: 'AIzaSyCz_VzoofmMvUjN6kbXkf26F3C6fNVI9so',
+    appId: '1:924684180668:ios:8295a911d356674bf144b9',
+    messagingSenderId: '924684180668',
+    projectId: 'refab-app',
+    storageBucket: 'refab-app.firebasestorage.app',
+    iosBundleId: 'com.refab.refabApp',
   );
 
   static const FirebaseOptions macos = FirebaseOptions(
-    apiKey: 'your-ios-api-key',
-    appId: 'your-ios-app-id',
-    messagingSenderId: 'your-sender-id',
-    projectId: 'your-project-id',
-    storageBucket: 'your-project.appspot.com',
-    iosBundleId: 'com.refab.app',
+    apiKey: 'AIzaSyCz_VzoofmMvUjN6kbXkf26F3C6fNVI9so',
+    appId: '1:924684180668:ios:8295a911d356674bf144b9',
+    messagingSenderId: '924684180668',
+    projectId: 'refab-app',
+    storageBucket: 'refab-app.firebasestorage.app',
+    iosBundleId: 'com.refab.refabApp',
   );
+
+  static const FirebaseOptions windows = FirebaseOptions(
+    apiKey: 'AIzaSyCFy8Q8SWWiGQ4lh1yON0dxn0jVy5Lq8nk',
+    appId: '1:924684180668:web:62c97326ad089c59f144b9',
+    messagingSenderId: '924684180668',
+    projectId: 'refab-app',
+    authDomain: 'refab-app.firebaseapp.com',
+    storageBucket: 'refab-app.firebasestorage.app',
+    measurementId: 'G-T6KJFNY1JX',
+  );
+
 }

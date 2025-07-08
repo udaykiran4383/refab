@@ -5,18 +5,16 @@ import 'package:refab_app/features/volunteer/data/repositories/volunteer_reposit
 import 'package:refab_app/features/volunteer/data/models/volunteer_hours_model.dart';
 import 'package:refab_app/features/volunteer/data/models/volunteer_task_model.dart';
 import 'package:refab_app/features/volunteer/data/models/volunteer_analytics_model.dart';
+import '../../test_helper.dart';
 
 void main() {
+  setUpAll(() async {
+    await TestHelper.setupFirebaseForTesting();
+  });
+
   group('VolunteerRepository Tests', () {
     late VolunteerRepository repository;
     late String testVolunteerId;
-
-    setUpAll(() async {
-      print('🤝 [VOLUNTEER_TEST] Setting up Firebase for testing...');
-      TestWidgetsFlutterBinding.ensureInitialized();
-      await Firebase.initializeApp();
-      print('🤝 [VOLUNTEER_TEST] ✅ Firebase initialized');
-    });
 
     setUp(() {
       print('🤝 [VOLUNTEER_TEST] Setting up test environment...');

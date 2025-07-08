@@ -64,6 +64,50 @@ class VolunteerRepository {
     }
   }
 
+  // Get volunteer hours by date range
+  Future<List<VolunteerHoursModel>> getVolunteerHoursByDateRange(String volunteerId, DateTime start, DateTime end) async {
+    final snapshot = await _firestore
+        .collection('volunteerHours')
+        .where('volunteerId', isEqualTo: volunteerId)
+        .where('logDate', isGreaterThanOrEqualTo: start.toIso8601String())
+        .where('logDate', isLessThanOrEqualTo: end.toIso8601String())
+        .get();
+    return snapshot.docs.map((doc) => VolunteerHoursModel.fromJson({...doc.data(), 'id': doc.id})).toList();
+  }
+
+  // Volunteer Task CRUD
+  Future<String> createVolunteerTask(VolunteerTaskModel task) async {
+    final docRef = await _firestore.collection('volunteerTasks').add(task.toJson());
+    return docRef.id;
+  }
+
+  Stream<List<VolunteerTaskModel>> getVolunteerTasks(String volunteerId) {
+    return _firestore
+        .collection('volunteerTasks')
+        .where('assignedVolunteerId', isEqualTo: volunteerId)
+        .orderBy('createdAt', descending: true)
+        .snapshots()
+        .map((snapshot) => snapshot.docs
+            .map((doc) => VolunteerTaskModel.fromJson({...doc.data(), 'id': doc.id}))
+            .toList());
+  }
+
+  Future<void> updateTaskStatus(String taskId, VolunteerTaskStatus status) async {
+    await _firestore.collection('volunteerTasks').doc(taskId).update({
+      'status': status.toString().split('.').last,
+      'updatedAt': DateTime.now().toIso8601String(),
+    });
+  }
+
+  Future<List<VolunteerTaskModel>> getTasksByType(String volunteerId, String taskCategory) async {
+    final snapshot = await _firestore
+        .collection('volunteerTasks')
+        .where('assignedVolunteerId', isEqualTo: volunteerId)
+        .where('taskCategory', isEqualTo: taskCategory)
+        .get();
+    return snapshot.docs.map((doc) => VolunteerTaskModel.fromJson({...doc.data(), 'id': doc.id})).toList();
+  }
+
   // Analytics
   Future<VolunteerAnalyticsModel> getVolunteerAnalytics(String volunteerId) async {
     try {
@@ -182,5 +226,38 @@ class VolunteerRepository {
     } catch (e) {
       throw Exception('Failed to verify hours: $e');
     }
+  }
+
+  // Certificate generation (mock)
+  Future<Map<String, dynamic>> generateVolunteerCertificate(String volunteerId) async {
+    // In a real app, this would generate a PDF or similar
+    return {
+      'certificateId': 'cert_${DateTime.now().millisecondsSinceEpoch}',
+      'volunteerId': volunteerId,
+      'issuedAt': DateTime.now().toIso8601String(),
+      'totalHours': 50.0,
+      'volunteerName': 'John Volunteer',
+    };
+  }
+
+  // Achievements (mock)
+  Future<List<Map<String, dynamic>>> getVolunteerAchievements(String volunteerId) async {
+    // In a real app, this would query a collection
+    return [
+      {'title': '50 Hours Milestone', 'date': DateTime.now().toIso8601String()},
+      {'title': 'First Task Completed', 'date': DateTime.now().toIso8601String()},
+    ];
+  }
+
+  // Profile (mock)
+  Future<Map<String, dynamic>> getVolunteerProfile(String volunteerId) async {
+    // In a real app, this would query the users collection
+    return {
+      'id': volunteerId,
+      'name': 'John Volunteer',
+      'email': 'john@example.com',
+      'totalHours': 50.0,
+      'achievements': ['50 Hours Milestone', 'First Task Completed'],
+    };
   }
 } 

@@ -4,44 +4,28 @@ import 'package:firebase_core/firebase_core.dart';
 import 'package:refab_app/features/tailor/data/repositories/tailor_repository.dart';
 import 'package:refab_app/features/tailor/data/models/pickup_request_model.dart';
 import 'package:refab_app/features/auth/data/models/user_model.dart';
+import '../test_helper.dart';
 
 void main() {
+  setUpAll(() async {
+    await TestHelper.setupFirebaseForTesting();
+  });
+
   group('TailorRepository Tests', () {
     late TailorRepository repository;
     late String testTailorId;
 
-    setUpAll(() async {
-      print('🧪 [TAILOR_TEST] Setting up Firebase for testing...');
-      TestWidgetsFlutterBinding.ensureInitialized();
-      await Firebase.initializeApp();
-      print('🧪 [TAILOR_TEST] ✅ Firebase initialized');
-    });
-
     setUp(() {
       print('🧪 [TAILOR_TEST] Setting up test environment...');
       repository = TailorRepository();
-      testTailorId = 'test_tailor_${DateTime.now().millisecondsSinceEpoch}';
+      testTailorId = TestHelper.generateTestId('tailor');
       print('🧪 [TAILOR_TEST] ✅ Test environment ready. Tailor ID: $testTailorId');
     });
 
     tearDown(() async {
       print('🧪 [TAILOR_TEST] Cleaning up test data...');
-      // Clean up test data
-      try {
-        final pickupRequests = await FirebaseFirestore.instance
-            .collection('pickupRequests')
-            .where('tailorId', isEqualTo: testTailorId)
-            .get();
-        
-        final batch = FirebaseFirestore.instance.batch();
-        for (var doc in pickupRequests.docs) {
-          batch.delete(doc.reference);
-        }
-        await batch.commit();
-        print('🧪 [TAILOR_TEST] ✅ Test data cleaned up');
-      } catch (e) {
-        print('🧪 [TAILOR_TEST] ⚠️ Cleanup warning: $e');
-      }
+      await TestHelper.cleanupTestData('pickupRequests', 'tailorId', testTailorId);
+      print('🧪 [TAILOR_TEST] ✅ Test data cleaned up');
     });
 
     group('Pickup Request CRUD Operations', () {
@@ -51,8 +35,13 @@ void main() {
         final pickupRequest = PickupRequestModel(
           id: '',
           tailorId: testTailorId,
-          fabricType: 'Cotton',
+          customerName: 'Test Customer',
+          customerPhone: '+91-1234567890',
+          customerEmail: 'test@example.com',
+          fabricType: FabricType.cotton,
+          fabricDescription: 'Test cotton fabric',
           estimatedWeight: 5.5,
+          estimatedValue: 100.0,
           pickupAddress: '123 Test Street, Mumbai',
           status: PickupStatus.pending,
           photos: ['photo1.jpg', 'photo2.jpg'],
@@ -75,8 +64,13 @@ void main() {
         final pickupRequest1 = PickupRequestModel(
           id: '',
           tailorId: testTailorId,
-          fabricType: 'Silk',
+          customerName: 'Test Customer 1',
+          customerPhone: '+91-1234567891',
+          customerEmail: 'test1@example.com',
+          fabricType: FabricType.silk,
+          fabricDescription: 'Test silk fabric',
           estimatedWeight: 3.0,
+          estimatedValue: 150.0,
           pickupAddress: '456 Test Avenue, Mumbai',
           status: PickupStatus.pending,
           photos: ['photo3.jpg'],
@@ -86,8 +80,13 @@ void main() {
         final pickupRequest2 = PickupRequestModel(
           id: '',
           tailorId: testTailorId,
-          fabricType: 'Wool',
+          customerName: 'Test Customer 2',
+          customerPhone: '+91-1234567892',
+          customerEmail: 'test2@example.com',
+          fabricType: FabricType.wool,
+          fabricDescription: 'Test wool fabric',
           estimatedWeight: 7.5,
+          estimatedValue: 200.0,
           pickupAddress: '789 Test Road, Mumbai',
           status: PickupStatus.completed,
           photos: ['photo4.jpg', 'photo5.jpg'],
@@ -118,8 +117,13 @@ void main() {
         final pickupRequest = PickupRequestModel(
           id: '',
           tailorId: testTailorId,
-          fabricType: 'Linen',
+          customerName: 'Test Customer 3',
+          customerPhone: '+91-1234567893',
+          customerEmail: 'test3@example.com',
+          fabricType: FabricType.linen,
+          fabricDescription: 'Test linen fabric',
           estimatedWeight: 4.0,
+          estimatedValue: 120.0,
           pickupAddress: '321 Test Lane, Mumbai',
           status: PickupStatus.pending,
           photos: ['photo6.jpg'],
@@ -146,8 +150,13 @@ void main() {
         final pickupRequest = PickupRequestModel(
           id: '',
           tailorId: testTailorId,
-          fabricType: 'Denim',
+          customerName: 'Test Customer 4',
+          customerPhone: '+91-1234567894',
+          customerEmail: 'test4@example.com',
+          fabricType: FabricType.denim,
+          fabricDescription: 'Test denim fabric',
           estimatedWeight: 6.0,
+          estimatedValue: 180.0,
           pickupAddress: '654 Test Boulevard, Mumbai',
           status: PickupStatus.pending,
           photos: ['photo7.jpg'],
@@ -158,7 +167,7 @@ void main() {
         final requestId = await repository.createPickupRequest(pickupRequest);
         
         print('🧪 [TAILOR_TEST] Cancelling pickup request...');
-        await repository.cancelPickupRequest(requestId);
+        await repository.cancelPickupRequest(requestId, 'Test cancellation reason');
         
         print('🧪 [TAILOR_TEST] Verifying cancellation...');
         final requests = await repository.getPickupRequests(testTailorId).first;
@@ -177,8 +186,13 @@ void main() {
         final pickupRequest1 = PickupRequestModel(
           id: '',
           tailorId: testTailorId,
-          fabricType: 'Cotton',
+          customerName: 'Test Customer 5',
+          customerPhone: '+91-1234567895',
+          customerEmail: 'test5@example.com',
+          fabricType: FabricType.cotton,
+          fabricDescription: 'Test cotton fabric 2',
           estimatedWeight: 5.0,
+          estimatedValue: 100.0,
           pickupAddress: 'Test Address 1',
           status: PickupStatus.completed,
           photos: ['photo1.jpg'],
@@ -188,8 +202,13 @@ void main() {
         final pickupRequest2 = PickupRequestModel(
           id: '',
           tailorId: testTailorId,
-          fabricType: 'Silk',
+          customerName: 'Test Customer 6',
+          customerPhone: '+91-1234567896',
+          customerEmail: 'test6@example.com',
+          fabricType: FabricType.silk,
+          fabricDescription: 'Test silk fabric 2',
           estimatedWeight: 3.0,
+          estimatedValue: 150.0,
           pickupAddress: 'Test Address 2',
           status: PickupStatus.pending,
           photos: ['photo2.jpg'],
@@ -199,8 +218,13 @@ void main() {
         final pickupRequest3 = PickupRequestModel(
           id: '',
           tailorId: testTailorId,
-          fabricType: 'Wool',
+          customerName: 'Test Customer 7',
+          customerPhone: '+91-1234567897',
+          customerEmail: 'test7@example.com',
+          fabricType: FabricType.wool,
+          fabricDescription: 'Test wool fabric 2',
           estimatedWeight: 7.0,
+          estimatedValue: 200.0,
           pickupAddress: 'Test Address 3',
           status: PickupStatus.completed,
           photos: ['photo3.jpg'],
@@ -216,17 +240,17 @@ void main() {
         final analytics = await repository.getTailorAnalytics(testTailorId);
         
         print('🧪 [TAILOR_TEST] 📊 Analytics Results:');
-        print('   - Total Requests: ${analytics['totalRequests']}');
-        print('   - Completed Requests: ${analytics['completedRequests']}');
-        print('   - Pending Requests: ${analytics['pendingRequests']}');
-        print('   - Total Weight: ${analytics['totalWeight']}kg');
-        print('   - Completion Rate: ${analytics['completionRate']}%');
+        print('   - Total Requests: ${analytics.totalPickupRequests}');
+        print('   - Completed Requests: ${analytics.completedPickupRequests}');
+        print('   - Pending Requests: ${analytics.pendingPickupRequests}');
+        print('   - Total Weight: ${analytics.totalWeightCollected}kg');
+        print('   - Completion Rate: ${analytics.completionRate}%');
         
-        expect(analytics['totalRequests'], greaterThanOrEqualTo(3));
-        expect(analytics['completedRequests'], greaterThanOrEqualTo(2));
-        expect(analytics['pendingRequests'], greaterThanOrEqualTo(1));
-        expect(analytics['totalWeight'], greaterThanOrEqualTo(10.0));
-        expect(analytics['completionRate'], greaterThan(0));
+        expect(analytics.totalPickupRequests, greaterThanOrEqualTo(3));
+        expect(analytics.completedPickupRequests, greaterThanOrEqualTo(2));
+        expect(analytics.pendingPickupRequests, greaterThanOrEqualTo(1));
+        expect(analytics.totalWeightCollected, greaterThanOrEqualTo(10.0));
+        expect(analytics.completionRate, greaterThan(0));
         
         print('🧪 [TAILOR_TEST] ✅ Analytics retrieved successfully');
       });
@@ -268,8 +292,13 @@ void main() {
           await repository.createPickupRequest(PickupRequestModel(
             id: '',
             tailorId: '', // Invalid empty ID
-            fabricType: '',
+            customerName: '',
+            customerPhone: '',
+            customerEmail: '',
+            fabricType: FabricType.other,
+            fabricDescription: '',
             estimatedWeight: -1, // Invalid negative weight
+            estimatedValue: 0.0,
             pickupAddress: '',
             status: PickupStatus.pending,
             photos: [],
@@ -306,8 +335,13 @@ void main() {
           final pickupRequest = PickupRequestModel(
             id: '',
             tailorId: testTailorId,
-            fabricType: 'Test Fabric $i',
+            customerName: 'Test Customer $i',
+            customerPhone: '+91-123456789$i',
+            customerEmail: 'test$i@example.com',
+            fabricType: FabricType.other,
+            fabricDescription: 'Test fabric description $i',
             estimatedWeight: i + 1.0,
+            estimatedValue: (i + 1) * 50.0,
             pickupAddress: 'Test Address $i',
             status: PickupStatus.pending,
             photos: ['photo$i.jpg'],

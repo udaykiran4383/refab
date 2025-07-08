@@ -4,8 +4,13 @@ import '../../../auth/data/models/user_model.dart';
 import '../../../auth/providers/auth_provider.dart';
 import '../widgets/pickup_request_card.dart';
 import '../widgets/stats_card.dart';
+import '../widgets/work_progress_card.dart';
+import '../widgets/pickup_workflow_diagram.dart';
 import 'new_pickup_request_page.dart';
 import '../../../customer/presentation/pages/profile_page.dart';
+import '../../data/repositories/tailor_repository.dart';
+import '../../providers/tailor_provider.dart';
+import '../../data/models/pickup_request_model.dart';
 
 class TailorDashboard extends ConsumerStatefulWidget {
   final UserModel user;
@@ -22,73 +27,31 @@ class _TailorDashboardState extends ConsumerState<TailorDashboard> {
 
   final List<String> _statusFilters = ['All', 'Pending', 'In Progress', 'Completed', 'Cancelled'];
 
-  // Mock data for demonstration
-  final List<Map<String, dynamic>> _pickupRequests = [
-    {
-      'id': 'PR001',
-      'fabricType': 'Cotton',
-      'weight': 5.5,
-      'status': 'Pending',
-      'date': DateTime.now().subtract(const Duration(days: 1)),
-      'address': '123 Main Street, Mumbai',
-      'customerName': 'John Doe',
-      'customerPhone': '+91 9876543210',
-      'description': 'Old cotton shirts and pants',
-      'estimatedValue': 250.0,
-    },
-    {
-      'id': 'PR002',
-      'fabricType': 'Silk',
-      'weight': 2.0,
-      'status': 'In Progress',
-      'date': DateTime.now().subtract(const Duration(days: 2)),
-      'address': '456 Park Avenue, Delhi',
-      'customerName': 'Jane Smith',
-      'customerPhone': '+91 9876543211',
-      'description': 'Silk sarees and scarves',
-      'estimatedValue': 500.0,
-    },
-    {
-      'id': 'PR003',
-      'fabricType': 'Wool',
-      'weight': 3.5,
-      'status': 'Completed',
-      'date': DateTime.now().subtract(const Duration(days: 3)),
-      'address': '789 Lake Road, Bangalore',
-      'customerName': 'Mike Johnson',
-      'customerPhone': '+91 9876543212',
-      'description': 'Woolen sweaters and coats',
-      'estimatedValue': 400.0,
-    },
-    {
-      'id': 'PR004',
-      'fabricType': 'Polyester',
-      'weight': 4.0,
-      'status': 'Pending',
-      'date': DateTime.now().subtract(const Duration(days: 4)),
-      'address': '321 Beach Road, Chennai',
-      'customerName': 'Sarah Wilson',
-      'customerPhone': '+91 9876543213',
-      'description': 'Polyester curtains and bedsheets',
-      'estimatedValue': 300.0,
-    },
-  ];
+  // Use real data from Firestore instead of mock data
+  List<PickupRequestModel> get _pickupRequests {
+    final requestsAsync = ref.watch(pickupRequestsProvider(widget.user.id));
+    return requestsAsync.when(
+      data: (requests) => requests,
+      loading: () => [],
+      error: (error, stack) => [],
+    );
+  }
 
-  List<Map<String, dynamic>> get _filteredRequests {
+  List<PickupRequestModel> get _filteredRequests {
     return _pickupRequests.where((request) {
-      final statusMatch = _selectedStatus == 'All' || request['status'] == _selectedStatus;
-      final showCompleted = _showCompleted || request['status'] != 'Completed';
+      final statusMatch = _selectedStatus == 'All' || request.statusDisplayName == _selectedStatus;
+      final showCompleted = _showCompleted || request.status != PickupStatus.completed;
       return statusMatch && showCompleted;
     }).toList();
   }
 
   Map<String, dynamic> get _analytics {
     final total = _pickupRequests.length;
-    final pending = _pickupRequests.where((r) => r['status'] == 'Pending').length;
-    final inProgress = _pickupRequests.where((r) => r['status'] == 'In Progress').length;
-    final completed = _pickupRequests.where((r) => r['status'] == 'Completed').length;
-    final totalWeight = _pickupRequests.fold<double>(0, (sum, r) => sum + (r['weight'] as double));
-    final totalValue = _pickupRequests.fold<double>(0, (sum, r) => sum + (r['estimatedValue'] as double));
+    final pending = _pickupRequests.where((r) => r.status == PickupStatus.pending).length;
+    final inProgress = _pickupRequests.where((r) => r.status == PickupStatus.inProgress).length;
+    final completed = _pickupRequests.where((r) => r.status == PickupStatus.completed).length;
+    final totalWeight = _pickupRequests.fold<double>(0, (sum, r) => sum + r.estimatedWeight);
+    final totalValue = _pickupRequests.fold<double>(0, (sum, r) => sum + r.estimatedValue);
     
     return {
       'total': total,
@@ -426,8 +389,8 @@ class _TailorDashboardState extends ConsumerState<TailorDashboard> {
     );
   }
 
-  Widget _buildDetailedRequestCard(BuildContext context, Map<String, dynamic> request) {
-    final statusColor = _getStatusColor(request['status']);
+  Widget _buildDetailedRequestCard(BuildContext context, PickupRequestModel request) {
+    final statusColor = _getStatusColor(request.statusDisplayName);
     
     return Card(
       margin: const EdgeInsets.only(bottom: 12),
@@ -442,7 +405,7 @@ class _TailorDashboardState extends ConsumerState<TailorDashboard> {
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 Text(
-                  'Request #${request['id']}',
+                  'Request #${request.id}',
                   style: Theme.of(context).textTheme.titleMedium?.copyWith(
                     fontWeight: FontWeight.bold,
                   ),
@@ -454,7 +417,7 @@ class _TailorDashboardState extends ConsumerState<TailorDashboard> {
                     borderRadius: BorderRadius.circular(12),
                   ),
                   child: Text(
-                    request['status'],
+                    request.statusDisplayName,
                     style: TextStyle(
                       color: statusColor,
                       fontWeight: FontWeight.bold,
@@ -469,24 +432,39 @@ class _TailorDashboardState extends ConsumerState<TailorDashboard> {
             Row(
               children: [
                 Expanded(
-                  child: _buildRequestDetail('Fabric Type', request['fabricType'], Icons.category),
+                  child: _buildRequestDetail('Fabric Type', request.fabricType.toString().split('.').last.toUpperCase(), Icons.category),
                 ),
                 Expanded(
-                  child: _buildRequestDetail('Weight', '${request['weight']}kg', Icons.scale),
+                  child: _buildRequestDetail('Weight', '${request.estimatedWeight}kg', Icons.scale),
                 ),
                 Expanded(
-                  child: _buildRequestDetail('Value', '₹${request['estimatedValue']}', Icons.attach_money),
+                  child: _buildRequestDetail('Value', '₹${request.estimatedValue}', Icons.attach_money),
                 ),
               ],
             ),
             
             const SizedBox(height: 12),
             
-            _buildRequestDetail('Customer', request['customerName'], Icons.person),
-            _buildRequestDetail('Phone', request['customerPhone'], Icons.phone),
-            _buildRequestDetail('Address', request['address'], Icons.location_on),
-            _buildRequestDetail('Description', request['description'], Icons.description),
-            _buildRequestDetail('Date', _formatDate(request['date']), Icons.calendar_today),
+            _buildRequestDetail('Customer', request.customerName, Icons.person),
+            _buildRequestDetail('Phone', request.customerPhone, Icons.phone),
+            _buildRequestDetail('Address', request.pickupAddress, Icons.location_on),
+            _buildRequestDetail('Description', request.fabricDescription, Icons.description),
+            _buildRequestDetail('Date', _formatDate(request.createdAt), Icons.calendar_today),
+            
+            const SizedBox(height: 16),
+            
+            // Work Progress Card
+            WorkProgressCard(
+              request: request,
+              onProgressUpdate: request.canUpdateWorkProgress 
+                  ? () => _updateWorkProgress(request)
+                  : null,
+            ),
+            
+            const SizedBox(height: 16),
+            
+            // Workflow Diagram
+            PickupWorkflowDiagram(request: request),
             
             const SizedBox(height: 16),
             
@@ -502,19 +480,20 @@ class _TailorDashboardState extends ConsumerState<TailorDashboard> {
                   ),
                 ),
                 const SizedBox(width: 12),
-                Expanded(
-                  child: ElevatedButton.icon(
-                    onPressed: () {
-                      _updateRequestStatus(request);
-                    },
-                    icon: const Icon(Icons.edit),
-                    label: const Text('Update Status'),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Theme.of(context).primaryColor,
-                      foregroundColor: Colors.white,
+                if (request.canStartWork && request.canUpdateWorkProgress)
+                  Expanded(
+                    child: ElevatedButton.icon(
+                      onPressed: () {
+                        _updateWorkProgress(request);
+                      },
+                      icon: const Icon(Icons.update),
+                      label: const Text('Update Work'),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Theme.of(context).primaryColor,
+                        foregroundColor: Colors.white,
+                      ),
                     ),
                   ),
-                ),
               ],
             ),
           ],
@@ -662,7 +641,7 @@ class _TailorDashboardState extends ConsumerState<TailorDashboard> {
     );
   }
 
-  void _showRequestDetails(Map<String, dynamic> request) {
+  void _showRequestDetails(PickupRequestModel request) {
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
@@ -696,16 +675,16 @@ class _TailorDashboardState extends ConsumerState<TailorDashboard> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    _buildDetailRow('Request ID', request['id']),
-                    _buildDetailRow('Status', request['status']),
-                    _buildDetailRow('Fabric Type', request['fabricType']),
-                    _buildDetailRow('Weight', '${request['weight']}kg'),
-                    _buildDetailRow('Estimated Value', '₹${request['estimatedValue']}'),
-                    _buildDetailRow('Customer Name', request['customerName']),
-                    _buildDetailRow('Phone', request['customerPhone']),
-                    _buildDetailRow('Address', request['address']),
-                    _buildDetailRow('Description', request['description']),
-                    _buildDetailRow('Date', _formatDate(request['date'])),
+                    _buildDetailRow('Request ID', request.id),
+                    _buildDetailRow('Status', request.statusDisplayName),
+                    _buildDetailRow('Fabric Type', request.fabricType.toString().split('.').last.toUpperCase().toString().split('.').last),
+                    _buildDetailRow('Weight', '${request.estimatedWeight}kg'),
+                    _buildDetailRow('Estimated Value', '₹${request.estimatedValue}'),
+                    _buildDetailRow('Customer Name', request.customerName),
+                    _buildDetailRow('Phone', request.customerPhone),
+                    _buildDetailRow('Address', request.pickupAddress),
+                    _buildDetailRow('Description', request.fabricDescription),
+                    _buildDetailRow('Date', _formatDate(request.createdAt)),
                   ],
                 ),
               ),
@@ -743,32 +722,49 @@ class _TailorDashboardState extends ConsumerState<TailorDashboard> {
     );
   }
 
-  void _updateRequestStatus(Map<String, dynamic> request) {
+  void _updateWorkProgress(PickupRequestModel request) {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Update Status'),
+        title: const Text('Update Work Progress'),
         content: Column(
           mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text('Select new status:'),
+            Text('Current Status: ${request.statusDisplayName}', 
+              style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.blue)),
+            const SizedBox(height: 8),
+            Text('Current Work Progress: ${request.workProgressDisplayName}', 
+              style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.green)),
             const SizedBox(height: 16),
-            ...['Pending', 'In Progress', 'Completed', 'Cancelled'].map((status) {
+            const Text('Select your current work stage:'),
+            const SizedBox(height: 8),
+            ...TailorWorkProgress.values.map((progress) {
+              final isCurrent = request.workProgress == progress;
+              final isCompleted = request.workProgress != null && 
+                  request.workProgress!.index >= progress.index;
+              
               return ListTile(
-                title: Text(status),
-                leading: Radio<String>(
-                  value: status,
-                  groupValue: request['status'],
+                title: Text(_getWorkProgressDisplayName(progress)),
+                subtitle: isCurrent ? const Text('Current Stage', style: TextStyle(color: Colors.blue)) : null,
+                leading: Radio<TailorWorkProgress>(
+                  value: progress,
+                  groupValue: request.workProgress ?? TailorWorkProgress.notStarted,
                   onChanged: (value) {
                     Navigator.pop(context);
-                    setState(() {
-                      request['status'] = value;
-                    });
+                    // Update the work progress using the provider
+                    ref.read(tailorProvider.notifier).updateWorkProgress(request.id, value!);
                     ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(content: Text('Status updated to $value')),
+                      SnackBar(
+                        content: Text('Work progress updated to ${_getWorkProgressDisplayName(value)}'),
+                        backgroundColor: Colors.green,
+                      ),
                     );
                   },
                 ),
+                trailing: isCompleted && !isCurrent 
+                    ? const Icon(Icons.check_circle, color: Colors.green)
+                    : null,
               );
             }).toList(),
           ],
@@ -782,7 +778,40 @@ class _TailorDashboardState extends ConsumerState<TailorDashboard> {
       ),
     );
   }
+
+  String _getWorkProgressDisplayName(TailorWorkProgress progress) {
+    switch (progress) {
+      case TailorWorkProgress.notStarted:
+        return 'Not Started';
+      case TailorWorkProgress.fabricReceived:
+        return 'Fabric Received';
+      case TailorWorkProgress.fabricInspected:
+        return 'Fabric Inspected';
+      case TailorWorkProgress.cuttingStarted:
+        return 'Cutting Started';
+      case TailorWorkProgress.cuttingComplete:
+        return 'Cutting Complete';
+      case TailorWorkProgress.sewingStarted:
+        return 'Sewing Started';
+      case TailorWorkProgress.sewingComplete:
+        return 'Sewing Complete';
+      case TailorWorkProgress.qualityCheck:
+        return 'Quality Check';
+      case TailorWorkProgress.readyForDelivery:
+        return 'Ready for Delivery';
+      case TailorWorkProgress.completed:
+        return 'Work Completed';
+    }
+  }
+
+
 }
+
+// Provider for pickup requests
+final pickupRequestsProvider = StreamProvider.family<List<PickupRequestModel>, String>((ref, tailorId) {
+  final repository = ref.read(tailorRepositoryProvider);
+  return repository.getPickupRequests(tailorId);
+});
 
 class TailorSettingsPage extends StatelessWidget {
   const TailorSettingsPage({super.key});

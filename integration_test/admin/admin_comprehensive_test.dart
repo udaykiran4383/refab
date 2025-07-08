@@ -8,6 +8,7 @@ import 'package:refab_app/features/admin/data/models/system_config_model.dart';
 import 'package:refab_app/features/admin/data/models/notification_model.dart';
 import 'package:refab_app/features/admin/data/models/report_model.dart';
 import 'package:refab_app/features/auth/data/models/user_model.dart';
+import '../../../test/test_helper.dart';
 
 void main() {
   IntegrationTestWidgetsFlutterBinding.ensureInitialized();
@@ -19,9 +20,9 @@ void main() {
 
     setUpAll(() async {
       print('🔧 [ADMIN_COMPREHENSIVE] Setting up Firebase for integration testing...');
-      await Firebase.initializeApp();
+      await TestHelper.setupFirebaseForTesting();
       firestore = FirebaseFirestore.instance;
-      print('🔧 [ADMIN_COMPREHENSIVE] ✅ Firebase initialized');
+      print('🔧 [ADMIN_COMPREHENSIVE] ✅ Test environment ready');
     });
 
     setUp(() {

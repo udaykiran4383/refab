@@ -11,6 +11,8 @@ class FirestoreService {
     print('🔥 [FIRESTORE] Creating user: ${user.name} (${user.email}), role: ${user.role}');
     try {
       final userData = user.toJson();
+      // Always use Firestore server timestamp for created_at
+      userData['created_at'] = FieldValue.serverTimestamp();
       print('🔥 [FIRESTORE] User data to save: $userData');
       await _db.collection('users').doc(user.id).set(userData);
       print('🔥 [FIRESTORE] ✅ User created successfully in Firestore with role: ${user.role}');
@@ -246,9 +248,39 @@ class FirestoreService {
 
   static Future<void> createProduct(ProductModel product) async {
     try {
-      await _db.collection('products').doc(product.id).set(product.toJson());
+      print('🔥 [FIRESTORE] Starting createProduct...');
+      print('🔥 [FIRESTORE] Product ID: ${product.id}');
+      print('🔥 [FIRESTORE] Product data: ${product.toJson()}');
+      
+      final productData = {
+        ...product.toJson(),
+        'createdAt': FieldValue.serverTimestamp(),
+        'updatedAt': FieldValue.serverTimestamp(),
+      }..remove('id');
+      
+      print('🔥 [FIRESTORE] Final data to write: $productData');
+      print('🔥 [FIRESTORE] Writing to collection: products, document: ${product.id}');
+      
+      await _db.collection('products').doc(product.id).set(productData);
+      
+      print('🔥 [FIRESTORE] ✅ Product written successfully to Firestore');
+      
+      // Verify the write by reading it back
+      final doc = await _db.collection('products').doc(product.id).get();
+      if (doc.exists) {
+        print('🔥 [FIRESTORE] ✅ Verification: Document exists in Firestore');
+        print('🔥 [FIRESTORE] Document data: ${doc.data()}');
+      } else {
+        print('🔥 [FIRESTORE] ⚠️ Verification: Document does not exist after write');
+      }
+      
     } catch (e) {
-      print('Error creating product: $e');
+      print('🔥 [FIRESTORE] ❌ Error creating product: $e');
+      print('🔥 [FIRESTORE] Error type: ${e.runtimeType}');
+      if (e is FirebaseException) {
+        print('🔥 [FIRESTORE] Firebase error code: ${e.code}');
+        print('🔥 [FIRESTORE] Firebase error message: ${e.message}');
+      }
       rethrow;
     }
   }

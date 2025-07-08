@@ -510,25 +510,59 @@ class AdminRepository {
 
   // Pickup Request Management
   Stream<List<Map<String, dynamic>>> getAllPickupRequests() {
+    print('🔥 [ADMIN_REPO] Getting all pickup requests...');
     return _firestore
         .collection('pickupRequests')
-        .orderBy('createdAt', descending: true)
+        .orderBy('created_at', descending: true)
         .snapshots()
-        .map((snapshot) => snapshot.docs
-            .map((doc) => {
-                  ...doc.data(),
-                  'id': doc.id,
-                })
-            .toList());
+        .map((snapshot) {
+          print('🔥 [ADMIN_REPO] Found ${snapshot.docs.length} pickup requests');
+          final requests = snapshot.docs.map((doc) {
+            try {
+              final data = {
+                ...(doc.data() as Map<String, dynamic>),
+                'id': doc.id,
+              };
+              print('🔥 [ADMIN_REPO] Processing request: ${doc.id}');
+              print('🔥 [ADMIN_REPO]   - Customer: ${data['customer_name']}');
+              print('🔥 [ADMIN_REPO]   - Fabric: ${data['fabric_type']}');
+              print('🔥 [ADMIN_REPO]   - Status: ${data['status']}');
+              print('🔥 [ADMIN_REPO]   - Address: ${data['pickup_address']}');
+              print('🔥 [ADMIN_REPO]   - Tailor ID: ${data['tailor_id']}');
+              
+              // Check for field name inconsistencies
+              final rawData = doc.data();
+              if (rawData.containsKey('customerName') || rawData.containsKey('pickupAddress') || rawData.containsKey('tailorId')) {
+                print('🔥 [ADMIN_REPO] ⚠️ Found camelCase fields in request ${doc.id}');
+                print('🔥 [ADMIN_REPO] Raw fields: ${rawData.keys.toList()}');
+              }
+              
+              return data;
+            } catch (e) {
+              print('🔥 [ADMIN_REPO] ❌ Error processing request ${doc.id}: $e');
+              print('🔥 [ADMIN_REPO] Raw data: ${doc.data()}');
+              return {
+                'id': doc.id,
+                'error': 'Failed to parse data',
+                ...doc.data(),
+              };
+            }
+          }).toList();
+          print('🔥 [ADMIN_REPO] ✅ Successfully processed ${requests.length} pickup requests');
+          return requests;
+        });
   }
 
   Future<void> updatePickupStatus(String pickupId, String status) async {
     try {
+      print('🔥 [ADMIN_REPO] Updating pickup status: $pickupId to $status');
       await _firestore.collection('pickupRequests').doc(pickupId).update({
         'status': status,
-        'updatedAt': DateTime.now().toIso8601String(),
+        'updated_at': DateTime.now().toIso8601String(),
       });
+      print('🔥 [ADMIN_REPO] ✅ Pickup status updated successfully');
     } catch (e) {
+      print('🔥 [ADMIN_REPO] ❌ Error updating pickup status: $e');
       throw Exception('Failed to update pickup status: $e');
     }
   }
@@ -536,9 +570,9 @@ class AdminRepository {
   Future<void> assignPickupToVolunteer(String pickupId, String volunteerId) async {
     try {
       await _firestore.collection('pickupRequests').doc(pickupId).update({
-        'assignedVolunteerId': volunteerId,
+        'assigned_volunteer_id': volunteerId,
         'status': 'assigned',
-        'updatedAt': DateTime.now().toIso8601String(),
+        'updated_at': DateTime.now().toIso8601String(),
       });
     } catch (e) {
       throw Exception('Failed to assign pickup: $e');

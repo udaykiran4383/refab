@@ -1,0 +1,49 @@
+{
+  "name": "refab-admin-dashboard",
+  "version": "1.0.0",
+  "description": "Professional admin dashboard for Refab app with full CRUD operations",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "next lint",
+    "test": "jest",
+    "test:watch": "jest --watch",
+    "test:coverage": "jest --coverage",
+    "test:integration": "node test-integration.js",
+    "test:all": "npm run test && npm run test:integration",
+    "test:ci": "npm run test:coverage && npm run test:integration",
+    "type-check": "tsc --noEmit",
+    "clean": "rm -rf .next node_modules package-lock.json && npm install",
+    "deploy": "npm run build && npm run test:all"
+  },
+  "dependencies": {
+    "next": "14.0.4",
+    "react": "18.2.0",
+    "react-dom": "18.2.0",
+    "firebase": "9.23.0",
+    "@headlessui/react": "^1.7.17",
+    "@heroicons/react": "^2.0.18",
+    "recharts": "^2.8.0",
+    "react-hot-toast": "^2.4.1",
+    "date-fns": "^2.30.0",
+    "clsx": "^2.0.0",
+    "tailwindcss": "^3.3.6",
+    "autoprefixer": "^10.4.16",
+    "postcss": "^8.4.32"
+  },
+  "devDependencies": {
+    "@types/node": "^20.10.0",
+    "@types/react": "^18.2.0",
+    "@types/react-dom": "^18.2.0",
+    "eslint": "^8.55.0",
+    "eslint-config-next": "14.0.4",
+    "typescript": "^5.3.0",
+    "jest": "^29.7.0",
+    "jest-environment-jsdom": "^29.7.0",
+    "@testing-library/react": "^13.4.0",
+    "@testing-library/jest-dom": "^6.1.0",
+    "@testing-library/user-event": "^14.5.0"
+  }
+} 

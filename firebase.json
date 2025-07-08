@@ -1,0 +1,63 @@
+{
+  "emulators": {
+    "auth": {
+      "port": 9099
+    },
+    "firestore": {
+      "port": 8080
+    },
+    "storage": {
+      "port": 9199
+    },
+    "ui": {
+      "enabled": true,
+      "port": 4000
+    },
+    "singleProjectMode": true
+  },
+  "storage": {
+    "rules": "storage.rules"
+  },
+  "firestore": {
+    "rules": "firestore.rules"
+  },
+  "flutter": {
+    "platforms": {
+      "android": {
+        "default": {
+          "projectId": "refab-app",
+          "appId": "1:924684180668:android:17fa4d73fe37b981f144b9",
+          "fileOutput": "android/app/google-services.json"
+        }
+      },
+      "ios": {
+        "default": {
+          "projectId": "refab-app",
+          "appId": "1:924684180668:ios:8295a911d356674bf144b9",
+          "uploadDebugSymbols": true,
+          "fileOutput": "ios/Runner/GoogleService-Info.plist"
+        }
+      },
+      "macos": {
+        "default": {
+          "projectId": "refab-app",
+          "appId": "1:924684180668:ios:8295a911d356674bf144b9",
+          "uploadDebugSymbols": true,
+          "fileOutput": "macos/Runner/GoogleService-Info.plist"
+        }
+      },
+      "dart": {
+        "lib/firebase_options.dart": {
+          "projectId": "refab-app",
+          "configurations": {
+            "android": "1:924684180668:android:17fa4d73fe37b981f144b9",
+            "ios": "1:924684180668:ios:8295a911d356674bf144b9",
+            "macos": "1:924684180668:ios:8295a911d356674bf144b9",
+            "web": "1:924684180668:web:4aea87a38556d3e0f144b9",
+            "windows": "1:924684180668:web:62c97326ad089c59f144b9"
+          }
+        }
+      }
+    }
+  }
+}

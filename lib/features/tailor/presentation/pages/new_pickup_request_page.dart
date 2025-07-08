@@ -1,27 +1,35 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:uuid/uuid.dart';
 import '../../../auth/data/models/user_model.dart';
+import '../../../../core/services/location_service.dart';
+import '../../data/models/pickup_request_model.dart';
+import '../../data/repositories/tailor_repository.dart';
+import '../../providers/tailor_provider.dart';
 
-class NewPickupRequestPage extends StatefulWidget {
+class NewPickupRequestPage extends ConsumerStatefulWidget {
   final UserModel user;
-
+  
   const NewPickupRequestPage({super.key, required this.user});
 
   @override
-  State<NewPickupRequestPage> createState() => _NewPickupRequestPageState();
+  ConsumerState<NewPickupRequestPage> createState() => _NewPickupRequestPageState();
 }
 
-class _NewPickupRequestPageState extends State<NewPickupRequestPage> {
+class _NewPickupRequestPageState extends ConsumerState<NewPickupRequestPage> {
   final _formKey = GlobalKey<FormState>();
   final _fabricTypeController = TextEditingController();
   final _weightController = TextEditingController();
   final _addressController = TextEditingController();
   final _notesController = TextEditingController();
+  final _picker = ImagePicker();
   
   List<File> _selectedImages = [];
-  final ImagePicker _picker = ImagePicker();
   bool _isLoading = false;
+  bool _isGettingLocation = false;
+  FabricType _selectedFabricType = FabricType.cotton;
 
   @override
   Widget build(BuildContext context) {
@@ -47,17 +55,46 @@ class _NewPickupRequestPageState extends State<NewPickupRequestPage> {
                         style: Theme.of(context).textTheme.titleLarge,
                       ),
                       const SizedBox(height: 16),
-                      TextFormField(
-                        controller: _fabricTypeController,
+                      DropdownButtonFormField<FabricType>(
+                        value: _selectedFabricType,
                         decoration: const InputDecoration(
                           labelText: 'Fabric Type',
-                          hintText: 'e.g., Cotton, Silk, Polyester',
                           prefixIcon: Icon(Icons.category),
+                          border: OutlineInputBorder(),
+                        ),
+                        items: FabricType.values.map((type) {
+                          return DropdownMenuItem(
+                            value: type,
+                            child: Text(type.toString().split('.').last.toUpperCase()),
+                          );
+                        }).toList(),
+                        onChanged: (value) {
+                          if (value != null) {
+                            setState(() {
+                              _selectedFabricType = value;
+                            });
+                          }
+                        },
+                        validator: (value) {
+                          if (value == null) {
+                            return 'Please select fabric type';
+                          }
+                          return null;
+                        },
+                      ),
+                      const SizedBox(height: 16),
+                      TextFormField(
+                        controller: _fabricTypeController,
+                        maxLines: 2,
+                        decoration: const InputDecoration(
+                          labelText: 'Fabric Description',
+                          hintText: 'Describe the fabric condition, color, etc.',
+                          prefixIcon: Icon(Icons.description),
                           border: OutlineInputBorder(),
                         ),
                         validator: (value) {
                           if (value == null || value.isEmpty) {
-                            return 'Please enter fabric type';
+                            return 'Please enter fabric description';
                           }
                           return null;
                         },
@@ -115,11 +152,15 @@ class _NewPickupRequestPageState extends State<NewPickupRequestPage> {
                       ),
                       const SizedBox(height: 16),
                       ElevatedButton.icon(
-                        onPressed: () {
-                          // Use current location
-                        },
-                        icon: const Icon(Icons.my_location),
-                        label: const Text('Use Current Location'),
+                        onPressed: _isGettingLocation ? null : _getCurrentLocation,
+                        icon: _isGettingLocation 
+                            ? const SizedBox(
+                                width: 16,
+                                height: 16,
+                                child: CircularProgressIndicator(strokeWidth: 2),
+                              )
+                            : const Icon(Icons.my_location),
+                        label: Text(_isGettingLocation ? 'Getting Location...' : 'Use Current Location'),
                         style: ElevatedButton.styleFrom(
                           backgroundColor: Colors.blue,
                         ),
@@ -273,13 +314,128 @@ class _NewPickupRequestPageState extends State<NewPickupRequestPage> {
     }
   }
 
+  Future<void> _getCurrentLocation() async {
+    print('📍 [LOCATION] Starting getCurrentLocation...');
+    
+    if (mounted) {
+      setState(() => _isGettingLocation = true);
+    }
+    
+    try {
+      print('📍 [LOCATION] Requesting location permission...');
+      // Get current position
+      final position = await LocationService.getCurrentLocation();
+      
+      print('📍 [LOCATION] Position result: $position');
+      
+      if (position != null && mounted) {
+        print('📍 [LOCATION] Position obtained: ${position.latitude}, ${position.longitude}');
+        
+        // Convert coordinates to address
+        print('📍 [LOCATION] Converting coordinates to address...');
+        final address = await LocationService.getAddressFromCoordinates(
+          position.latitude, 
+          position.longitude
+        );
+        
+        print('📍 [LOCATION] Address result: $address');
+        
+        if (address != null && mounted) {
+          setState(() {
+            _addressController.text = address;
+            _notesController.text = 'Location: ${position.latitude.toStringAsFixed(6)}, ${position.longitude.toStringAsFixed(6)}';
+          });
+          
+          print('📍 [LOCATION] Address set successfully: $address');
+          
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Current location set successfully!'),
+              backgroundColor: Colors.green,
+            ),
+          );
+        } else {
+          print('📍 [LOCATION] Could not get address for coordinates');
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('Could not get address for current location'),
+                backgroundColor: Colors.orange,
+              ),
+            );
+          }
+        }
+      } else {
+        print('📍 [LOCATION] Position is null or widget not mounted');
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Location permission denied or location unavailable'),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
+      }
+    } catch (e) {
+      print('📍 [LOCATION] Error getting location: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error getting current location: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    } finally {
+      print('📍 [LOCATION] Finishing getCurrentLocation...');
+      if (mounted) {
+        setState(() => _isGettingLocation = false);
+      }
+    }
+  }
+
   Future<void> _submitRequest() async {
+    print('📦 [PICKUP] _submitRequest called');
+    print('📦 [PICKUP] Widget user ID: ${widget.user.id}');
+    print('📦 [PICKUP] Widget user name: ${widget.user.name}');
+    
     if (_formKey.currentState!.validate()) {
       setState(() => _isLoading = true);
       
       try {
-        // TODO: Implement API call to submit pickup request
-        await Future.delayed(const Duration(seconds: 2)); // Mock delay
+        print('📦 [PICKUP] Starting pickup request creation...');
+        
+        // For now, use placeholder image URLs since StorageService is not available
+        final imageUrls = _selectedImages.map((file) => 'placeholder_url_${file.path}').toList();
+        
+        // Create pickup request with the complex model
+        final request = PickupRequestModel(
+          id: const Uuid().v4(),
+          tailorId: widget.user.id,
+          customerName: widget.user.name,
+          customerPhone: widget.user.phone,
+          customerEmail: widget.user.email,
+          fabricType: _selectedFabricType,
+          fabricDescription: _fabricTypeController.text.trim(),
+          estimatedWeight: double.parse(_weightController.text),
+          pickupAddress: _addressController.text.trim(),
+          status: PickupStatus.pending,
+          estimatedValue: 0.0, // Will be calculated based on weight
+          photos: imageUrls,
+          notes: _notesController.text.trim(),
+          createdAt: DateTime.now(),
+        );
+        
+        print('📦 [PICKUP] Created request model: ${request.id}');
+        print('📦 [PICKUP] Tailor ID: ${request.tailorId}');
+        print('📦 [PICKUP] Customer: ${request.customerName}');
+        print('📦 [PICKUP] Address: ${request.pickupAddress}');
+        
+        // Use the repository to create the request
+        final repository = ref.read(tailorRepositoryProvider);
+        final requestId = await repository.createPickupRequest(request);
+        
+        print('📦 [PICKUP] ✅ Request saved to Firestore with ID: $requestId');
         
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
@@ -291,9 +447,13 @@ class _NewPickupRequestPageState extends State<NewPickupRequestPage> {
           Navigator.pop(context);
         }
       } catch (e) {
+        print('📦 [PICKUP] ❌ Error creating pickup request: $e');
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Error: $e')),
+            SnackBar(
+              content: Text('Error creating pickup request: $e'),
+              backgroundColor: Colors.red,
+            ),
           );
         }
       } finally {

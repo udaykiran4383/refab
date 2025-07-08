@@ -7,6 +7,7 @@ class SystemConfigModel {
   final double maxPickupWeight;
   final double minOrderAmount;
   final int volunteerCertificateHours;
+  final int maxPickupRequests;
   final bool enableAnalytics;
   final bool enableCrashlytics;
   final Map<String, dynamic> customSettings;
@@ -21,6 +22,7 @@ class SystemConfigModel {
     required this.maxPickupWeight,
     required this.minOrderAmount,
     required this.volunteerCertificateHours,
+    required this.maxPickupRequests,
     required this.enableAnalytics,
     required this.enableCrashlytics,
     required this.customSettings,
@@ -37,6 +39,7 @@ class SystemConfigModel {
       maxPickupWeight: (json['maxPickupWeight'] ?? 1000.0).toDouble(),
       minOrderAmount: (json['minOrderAmount'] ?? 50.0).toDouble(),
       volunteerCertificateHours: json['volunteerCertificateHours'] ?? 50,
+      maxPickupRequests: json['maxPickupRequests'] ?? 100,
       enableAnalytics: json['enableAnalytics'] ?? true,
       enableCrashlytics: json['enableCrashlytics'] ?? true,
       customSettings: Map<String, dynamic>.from(json['customSettings'] ?? {}),
@@ -54,6 +57,7 @@ class SystemConfigModel {
       maxPickupWeight: 1000.0,
       minOrderAmount: 50.0,
       volunteerCertificateHours: 50,
+      maxPickupRequests: 100,
       enableAnalytics: true,
       enableCrashlytics: true,
       customSettings: {},
@@ -71,6 +75,7 @@ class SystemConfigModel {
       'maxPickupWeight': maxPickupWeight,
       'minOrderAmount': minOrderAmount,
       'volunteerCertificateHours': volunteerCertificateHours,
+      'maxPickupRequests': maxPickupRequests,
       'enableAnalytics': enableAnalytics,
       'enableCrashlytics': enableCrashlytics,
       'customSettings': customSettings,
@@ -87,6 +92,7 @@ class SystemConfigModel {
     double? maxPickupWeight,
     double? minOrderAmount,
     int? volunteerCertificateHours,
+    int? maxPickupRequests,
     bool? enableAnalytics,
     bool? enableCrashlytics,
     Map<String, dynamic>? customSettings,
@@ -101,6 +107,7 @@ class SystemConfigModel {
       maxPickupWeight: maxPickupWeight ?? this.maxPickupWeight,
       minOrderAmount: minOrderAmount ?? this.minOrderAmount,
       volunteerCertificateHours: volunteerCertificateHours ?? this.volunteerCertificateHours,
+      maxPickupRequests: maxPickupRequests ?? this.maxPickupRequests,
       enableAnalytics: enableAnalytics ?? this.enableAnalytics,
       enableCrashlytics: enableCrashlytics ?? this.enableCrashlytics,
       customSettings: customSettings ?? this.customSettings,

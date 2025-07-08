@@ -1,3 +1,5 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
+
 class ProductModel {
   final String id;
   final String name;
@@ -22,6 +24,16 @@ class ProductModel {
   });
 
   factory ProductModel.fromJson(Map<String, dynamic> json) {
+    DateTime parseCreatedAt(dynamic value) {
+      if (value is Timestamp) {
+        return value.toDate();
+      } else if (value is String) {
+        return DateTime.parse(value);
+      } else {
+        return DateTime.now();
+      }
+    }
+
     return ProductModel(
       id: json['id'],
       name: json['name'],
@@ -31,7 +43,7 @@ class ProductModel {
       category: json['category'],
       isAvailable: json['isAvailable'] ?? true,
       rating: json['rating']?.toDouble(),
-      createdAt: DateTime.parse(json['createdAt']),
+      createdAt: parseCreatedAt(json['createdAt']),
     );
   }
 

@@ -73,8 +73,8 @@ class _PickupRequestsPageState extends ConsumerState<PickupRequestsPage> {
         subtitle: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('Customer: ${pickup['customerName'] ?? 'Unknown'}'),
-            Text('Weight: ${pickup['estimatedWeight'] ?? 'N/A'} kg'),
+            Text('Customer: ${pickup['customer_name'] ?? 'Unknown'}'),
+            Text('Weight: ${pickup['estimated_weight'] ?? 'N/A'} kg'),
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
               decoration: BoxDecoration(color: _getStatusColor(pickup['status']).withOpacity(0.2), borderRadius: BorderRadius.circular(12)),
@@ -123,10 +123,10 @@ class _PickupRequestsPageState extends ConsumerState<PickupRequestsPage> {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('Customer: ${pickup['customerName']}'),
-            Text('Weight: ${pickup['estimatedWeight']} kg'),
+            Text('Customer: ${pickup['customer_name']}'),
+            Text('Weight: ${pickup['estimated_weight']} kg'),
             Text('Status: ${pickup['status']}'),
-            Text('Created: ${_formatDate(pickup['createdAt'])}'),
+            Text('Created: ${_formatDate(pickup['created_at'])}'),
           ],
         ),
         actions: [TextButton(onPressed: () => Navigator.of(context).pop(), child: const Text('Close'))],
@@ -171,6 +171,13 @@ class _PickupRequestsPageState extends ConsumerState<PickupRequestsPage> {
 }
 
 final allPickupRequestsProvider = StreamProvider<List<Map<String, dynamic>>>((ref) {
+  print('🔥 [ADMIN_PICKUP_PROVIDER] Setting up pickup requests stream...');
   final repository = ref.read(adminRepositoryProvider);
-  return repository.getAllPickupRequests();
+  return repository.getAllPickupRequests().map((requests) {
+    print('🔥 [ADMIN_PICKUP_PROVIDER] Received ${requests.length} pickup requests');
+    for (final request in requests) {
+      print('🔥 [ADMIN_PICKUP_PROVIDER] Request: ${request['id']} - ${request['customer_name']} - ${request['status']}');
+    }
+    return requests;
+  });
 }); 

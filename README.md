@@ -140,37 +140,40 @@ ReFab connects tailors with textile waste to customers who want eco-friendly pro
 - **Optimized Queries**: Efficient Firebase operations
 - **Batch Operations**: Bulk data processing capabilities
 
-## 📱 Setup Instructions
+## 📱 **COMPLETE SETUP INSTRUCTIONS**
 
 ### Prerequisites
-\`\`\`bash
-# Install Flutter
-flutter --version  # Should be 3.16+
+```bash
+# Install Flutter (3.16+)
+flutter --version
 
 # Install Firebase CLI
 npm install -g firebase-tools
-\`\`\`
+
+# Install FlutterFire CLI
+dart pub global activate flutterfire_cli
+```
 
 ### 1. Clone & Setup
-\`\`\`bash
-# Create new Flutter project
-flutter create refab_app
-cd refab_app
-
-# Copy all files from the CodeProject above
-# Replace the generated files with provided code
+```bash
+# Clone the repository
+git clone <your-repo-url>
+cd refabapp5
 
 # Get dependencies
 flutter pub get
-\`\`\`
+
+# Enable web support (if needed)
+flutter config --enable-web
+```
 
 ### 2. Firebase Setup
 
 #### A. Create Firebase Project
 1. Go to [Firebase Console](https://console.firebase.google.com/)
 2. Click "Create a project"
-3. Name it "refab-app"
-4. Enable Google Analytics (optional)
+3. Name it "refab-app" (or your preferred name)
+4. Enable Google Analytics (recommended)
 
 #### B. Enable Services
 In Firebase Console, enable:
@@ -179,13 +182,13 @@ In Firebase Console, enable:
 - **Storage** → Start in test mode
 
 #### C. Configure Flutter App
-\`\`\`bash
-# Install FlutterFire CLI
-dart pub global activate flutterfire_cli
+```bash
+# Login to Firebase
+firebase login
 
 # Configure Firebase for your app
 flutterfire configure
-\`\`\`
+```
 
 This will:
 - Create `firebase_options.dart` with your config
@@ -194,7 +197,7 @@ This will:
 
 #### D. Update Firestore Rules
 In Firebase Console → Firestore → Rules:
-\`\`\`javascript
+```javascript
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
@@ -219,13 +222,25 @@ service cloud.firestore {
       allow read, write: if request.auth != null && 
         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
     }
+    
+    // Analytics - admin only
+    match /analytics/{document=**} {
+      allow read, write: if request.auth != null && 
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
+    }
+    
+    // System config - admin only
+    match /systemConfig/{document=**} {
+      allow read, write: if request.auth != null && 
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
+    }
   }
 }
-\`\`\`
+```
 
 #### E. Update Storage Rules
 In Firebase Console → Storage → Rules:
-\`\`\`javascript
+```javascript
 rules_version = '2';
 service firebase.storage {
   match /b/{bucket}/o {
@@ -234,17 +249,53 @@ service firebase.storage {
     }
   }
 }
-\`\`\`
+```
 
-### 3. Run the App
+### 3. Environment Setup
+
+#### A. Create Environment File
+```bash
+# Create .env.local file
+touch .env.local
+```
+
+Add your Firebase configuration:
+```env
+FIREBASE_API_KEY=your_api_key
+FIREBASE_PROJECT_ID=your_project_id
+FIREBASE_STORAGE_BUCKET=your_storage_bucket
+FIREBASE_MESSAGING_SENDER_ID=your_sender_id
+FIREBASE_APP_ID=your_app_id
+```
+
+#### B. Platform-Specific Setup
+
+**Android:**
+```bash
+# Update android/app/build.gradle.kts if needed
+# Ensure google-services.json is in android/app/
+```
+
+**iOS:**
+```bash
+# Update ios/Runner/Info.plist if needed
+# Ensure GoogleService-Info.plist is in ios/Runner/
+```
+
+**Web:**
+```bash
+# Web configuration is handled by flutterfire configure
+```
+
+### 4. Run the App
 
 #### For Web
-\`\`\`bash
+```bash
 flutter run -d chrome
-\`\`\`
+```
 
 #### For Mobile
-\`\`\`bash
+```bash
 # List available devices
 flutter devices
 
@@ -253,9 +304,9 @@ flutter run -d android
 
 # Run on iOS (Mac only)
 flutter run -d ios
-\`\`\`
+```
 
-### 4. Test User Accounts
+### 5. Test User Accounts
 
 Create test accounts with different roles:
 
@@ -273,6 +324,11 @@ Create test accounts with different roles:
    - Email: `admin@test.com`
    - Password: `123456`
    - Role: Admin
+
+4. **Volunteer Account**:
+   - Email: `volunteer@test.com`
+   - Password: `123456`
+   - Role: Volunteer
 
 ## 🚀 How to Use
 
@@ -307,7 +363,7 @@ Create test accounts with different roles:
 
 ### ✅ Authentication
 - Email/password registration and login
-- Role-based access (Tailor, Customer, Admin)
+- Role-based access (Tailor, Customer, Admin, Volunteer)
 - Secure Firebase Auth integration
 
 ### ✅ Tailor Module
@@ -343,7 +399,13 @@ Create test accounts with different roles:
 ## 🧪 Testing
 
 ### Running Tests
-\`\`\`bash
+```bash
+# Run all tests
+flutter test
+
+# Run integration tests
+flutter test integration_test/
+
 # Run admin integration tests
 flutter test integration_test/admin/
 
@@ -352,7 +414,22 @@ flutter test integration_test/admin/admin_repository_test.dart
 
 # Run comprehensive admin tests
 flutter test integration_test/admin/admin_comprehensive_test.dart
-\`\`\`
+
+# Run with coverage
+flutter test --coverage
+```
+
+### Test Scripts
+```bash
+# Run all repository tests
+./scripts/run_repository_tests.sh
+
+# Run admin tests
+./scripts/run_admin_tests.sh
+
+# Start Firebase emulators
+./scripts/start_emulators.sh
+```
 
 ### Test Coverage
 - ✅ User Management CRUD operations
@@ -368,20 +445,21 @@ flutter test integration_test/admin/admin_comprehensive_test.dart
 ### Common Issues:
 
 #### 1. Firebase Configuration Error
-\`\`\`bash
+```bash
 # Re-run FlutterFire configuration
 flutterfire configure
 
 # Make sure firebase_options.dart is generated
-\`\`\`
+# Check that all platform files are updated
+```
 
 #### 2. Build Errors
-\`\`\`bash
+```bash
 # Clean and rebuild
 flutter clean
 flutter pub get
 flutter run
-\`\`\`
+```
 
 #### 3. Permission Denied (Firestore)
 - Check Firestore rules are updated
@@ -394,20 +472,29 @@ flutter run
 - Verify internet connection
 
 #### 5. Web Build Issues
-\`\`\`bash
+```bash
 # Enable web support
 flutter config --enable-web
 flutter create . --platforms web
-\`\`\`
+```
 
 #### 6. Admin Tests Fail
-\`\`\`bash
+```bash
 # Run as integration tests (not unit tests)
 flutter test integration_test/admin/
 
 # Ensure Firebase is properly configured
 flutterfire configure
-\`\`\`
+```
+
+#### 7. Firebase Emulator Issues
+```bash
+# Start emulators
+firebase emulators:start
+
+# Or use the script
+./scripts/start_emulators.sh
+```
 
 ## 📱 Screenshots
 
@@ -447,21 +534,32 @@ Track your contribution:
 To extend this MVP:
 1. Add payment gateway integration
 2. Implement push notifications
-3. Add GPS tracking for pickups
-4. Create detailed product pages
-5. Add user reviews and ratings
-6. Implement order management
-7. Add multi-language support
+3. Add real-time chat between users
+4. Implement advanced analytics
+5. Add mobile app store deployment
+6. Implement offline capabilities
 
-## 📞 Support
+## 📚 Documentation
 
-If you encounter any issues:
-1. Check this README first
-2. Verify Firebase configuration
-3. Check console logs for errors
-4. Ensure all dependencies are installed
+Additional documentation available in the `docs/` folder:
+- `admin-dashboard-completion-summary.md` - Admin system implementation details
+- `complete-logistics-workflow.md` - Logistics workflow documentation
+- `comprehensive-admin-dashboard.md` - Admin dashboard features
+- `firebase-testing-guide.md` - Firebase testing instructions
+- `test-results-summary.md` - Test results and coverage
+
+## 🤝 Contributing
+
+1. Fork the repository
+2. Create a feature branch
+3. Make your changes
+4. Add tests for new features
+5. Submit a pull request
+
+## 📄 License
+
+This project is licensed under the MIT License - see the LICENSE file for details.
 
 ---
 
-**Ready to make a positive environmental impact? Start recycling textile waste with ReFab! 🌱♻️**
-# refab
+**Built with ❤️ for a sustainable future**

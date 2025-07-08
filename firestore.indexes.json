@@ -1,0 +1,47 @@
+{
+  "indexes": [
+    {
+      "collectionGroup": "pickupRequests",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "tailor_id",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "created_at",
+          "order": "DESCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "pickupRequests",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "tailor_id",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "status",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "created_at",
+          "order": "DESCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "pickupRequests",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "created_at",
+          "order": "DESCENDING"
+        }
+      ]
+    }
+  ],
+  "fieldOverrides": []
+} 

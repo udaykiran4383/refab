@@ -86,7 +86,7 @@ class AuthRepository {
               'role': user.role.toString().split('.').last,
               'address': user.address,
               'is_active': user.isActive,
-              'created_at': user.createdAt.toIso8601String(),
+              'created_at': FieldValue.serverTimestamp(),
             };
             
             await FirebaseFirestore.instance.collection('users').doc(user.id).set(userData);

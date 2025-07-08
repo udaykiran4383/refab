@@ -1,9 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../../../models/pickup_request_model.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:uuid/uuid.dart';
+import '../data/repositories/admin_repository.dart';
+import '../providers/admin_provider.dart';
+import '../../tailor/data/models/pickup_request_model.dart';
 import '../../../models/product_model.dart';
 import '../../../services/firestore_service.dart';
-import 'package:uuid/uuid.dart';
 
 class AdminPage extends ConsumerStatefulWidget {
   const AdminPage({super.key});
@@ -173,27 +176,24 @@ class _AnalyticsTab extends StatelessWidget {
   }
 }
 
-class _PickupRequestsTab extends StatelessWidget {
+class _PickupRequestsTab extends ConsumerWidget {
   const _PickupRequestsTab();
 
   @override
-  Widget build(BuildContext context) {
-    return StreamBuilder<List<PickupRequestModel>>(
-      stream: FirestoreService.getAllPickupRequests(),
-      builder: (context, snapshot) {
-        if (snapshot.connectionState == ConnectionState.waiting) {
-          return const Center(child: CircularProgressIndicator());
-        }
-
-        if (!snapshot.hasData || snapshot.data!.isEmpty) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final pickups = ref.watch(allPickupRequestsProvider);
+    
+    return pickups.when(
+      data: (pickupsList) {
+        if (pickupsList.isEmpty) {
           return const Center(child: Text('No pickup requests'));
         }
-
+        
         return ListView.builder(
           padding: const EdgeInsets.all(16),
-          itemCount: snapshot.data!.length,
+          itemCount: pickupsList.length,
           itemBuilder: (context, index) {
-            final request = snapshot.data![index];
+            final request = pickupsList[index];
             return Card(
               margin: const EdgeInsets.only(bottom: 12),
               child: Padding(
@@ -205,7 +205,7 @@ class _PickupRequestsTab extends StatelessWidget {
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
                         Text(
-                          request.fabricType,
+                          request['fabric_type'] ?? 'Unknown',
                           style: Theme.of(context).textTheme.titleMedium?.copyWith(
                             fontWeight: FontWeight.bold,
                           ),
@@ -213,13 +213,11 @@ class _PickupRequestsTab extends StatelessWidget {
                         Container(
                           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                           decoration: BoxDecoration(
-                            color: request.status == PickupStatus.completed 
-                                ? Colors.green 
-                                : Colors.orange,
+                            color: _getStatusColor(request['status']),
                             borderRadius: BorderRadius.circular(12),
                           ),
                           child: Text(
-                            request.status.toString().split('.').last,
+                            (request['status'] ?? 'pending').toString().toUpperCase(),
                             style: const TextStyle(
                               color: Colors.white,
                               fontSize: 12,
@@ -230,15 +228,16 @@ class _PickupRequestsTab extends StatelessWidget {
                       ],
                     ),
                     const SizedBox(height: 8),
-                    Text('Weight: ${request.weight}kg'),
-                    Text('Address: ${request.address}'),
+                    Text('Weight: ${request['estimated_weight'] ?? 'N/A'}kg'),
+                    Text('Address: ${request['pickup_address'] ?? 'N/A'}'),
+                    Text('Customer: ${request['customer_name'] ?? 'N/A'}'),
                     const SizedBox(height: 12),
-                    if (request.status == PickupStatus.pending)
+                    if (request['status'] == 'pending')
                       ElevatedButton(
                         onPressed: () async {
-                          await FirestoreService.updatePickupStatus(
-                            request.id,
-                            PickupStatus.completed,
+                          await ref.read(adminRepositoryProvider).updatePickupStatus(
+                            request['id'],
+                            'completed',
                           );
                         },
                         child: const Text('Mark as Completed'),
@@ -250,7 +249,18 @@ class _PickupRequestsTab extends StatelessWidget {
           },
         );
       },
+      loading: () => const Center(child: CircularProgressIndicator()),
+      error: (error, stack) => Center(child: Text('Error: $error')),
     );
+  }
+
+  Color _getStatusColor(String? status) {
+    switch (status?.toLowerCase()) {
+      case 'pending': return Colors.orange;
+      case 'completed': return Colors.green;
+      case 'cancelled': return Colors.red;
+      default: return Colors.grey;
+    }
   }
 }
 
@@ -358,6 +368,13 @@ class _AddProductTabState extends ConsumerState<_AddProductTab> {
       setState(() => _isLoading = true);
       
       try {
+        print('🛍️ [ADMIN] Starting product creation...');
+        print('🛍️ [ADMIN] Form data:');
+        print('  - Name: ${_nameController.text.trim()}');
+        print('  - Description: ${_descriptionController.text.trim()}');
+        print('  - Price: ${_priceController.text}');
+        print('  - Category: ${_categoryController.text.trim()}');
+        
         final product = ProductModel(
           id: const Uuid().v4(),
           name: _nameController.text.trim(),
@@ -369,7 +386,16 @@ class _AddProductTabState extends ConsumerState<_AddProductTab> {
           createdAt: DateTime.now(),
         );
         
+        print('🛍️ [ADMIN] Product model created:');
+        print('  - ID: ${product.id}');
+        print('  - Name: ${product.name}');
+        print('  - Price: ${product.price}');
+        print('  - Category: ${product.category}');
+        print('  - CreatedAt: ${product.createdAt}');
+        
+        print('🛍️ [ADMIN] Calling FirestoreService.createProduct...');
         await FirestoreService.createProduct(product);
+        print('🛍️ [ADMIN] ✅ FirestoreService.createProduct completed successfully');
         
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
@@ -384,18 +410,33 @@ class _AddProductTabState extends ConsumerState<_AddProductTab> {
           _descriptionController.clear();
           _priceController.clear();
           _categoryController.clear();
+          
+          print('🛍️ [ADMIN] ✅ Form cleared and success message shown');
         }
       } catch (e) {
+        print('🛍️ [ADMIN] ❌ Error creating product: $e');
+        print('🛍️ [ADMIN] Error type: ${e.runtimeType}');
+        if (e is FirebaseException) {
+          print('🛍️ [ADMIN] Firebase error code: ${e.code}');
+          print('🛍️ [ADMIN] Firebase error message: ${e.message}');
+        }
+        
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Error: $e')),
+            SnackBar(
+              content: Text('Error: $e'),
+              backgroundColor: Colors.red,
+            ),
           );
         }
       } finally {
         if (mounted) {
           setState(() => _isLoading = false);
+          print('🛍️ [ADMIN] Loading state set to false');
         }
       }
+    } else {
+      print('🛍️ [ADMIN] ❌ Form validation failed');
     }
   }
 
@@ -408,3 +449,9 @@ class _AddProductTabState extends ConsumerState<_AddProductTab> {
     super.dispose();
   }
 }
+
+// Provider for all pickup requests
+final allPickupRequestsProvider = StreamProvider<List<Map<String, dynamic>>>((ref) {
+  final repository = ref.read(adminRepositoryProvider);
+  return repository.getAllPickupRequests();
+});

@@ -2,6 +2,8 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import '../models/product_model.dart';
 import '../models/order_model.dart';
 import '../models/cart_model.dart';
+import '../models/customer_profile_model.dart';
+import '../models/customer_analytics_model.dart';
 import '../../../auth/data/models/user_model.dart';
 
 class CustomerRepository {
@@ -268,5 +270,346 @@ class CustomerRepository {
           }
           return <String>[];
         });
+  }
+
+  // Customer Profile Management
+  Future<void> createCustomerProfile(CustomerProfileModel profile) async {
+    try {
+      await _firestore.collection('customerProfiles').doc(profile.id).set(profile.toJson());
+    } catch (e) {
+      throw Exception('Failed to create customer profile: $e');
+    }
+  }
+
+  Future<void> updateCustomerProfile(String customerId, Map<String, dynamic> updates) async {
+    try {
+      await _firestore.collection('customerProfiles').doc(customerId).update({
+        ...updates,
+        'updatedAt': DateTime.now().toIso8601String(),
+      });
+    } catch (e) {
+      throw Exception('Failed to update customer profile: $e');
+    }
+  }
+
+  Future<CustomerProfileModel?> getCustomerProfile(String customerId) async {
+    try {
+      final doc = await _firestore.collection('customerProfiles').doc(customerId).get();
+      if (doc.exists) {
+        return CustomerProfileModel.fromJson({
+          ...doc.data()!,
+          'id': doc.id,
+        });
+      }
+      return null;
+    } catch (e) {
+      throw Exception('Failed to get customer profile: $e');
+    }
+  }
+
+  Stream<CustomerProfileModel?> getCustomerProfileStream(String customerId) {
+    return _firestore
+        .collection('customerProfiles')
+        .doc(customerId)
+        .snapshots()
+        .map((doc) {
+          if (doc.exists) {
+            return CustomerProfileModel.fromJson({
+              ...doc.data()!,
+              'id': doc.id,
+            });
+          }
+          return null;
+        });
+  }
+
+  // Customer Analytics
+  Future<void> updateCustomerAnalytics(String customerId, Map<String, dynamic> analytics) async {
+    try {
+      await _firestore.collection('customerAnalytics').doc(customerId).set({
+        'customerId': customerId,
+        ...analytics,
+        'updatedAt': DateTime.now().toIso8601String(),
+      }, SetOptions(merge: true));
+    } catch (e) {
+      throw Exception('Failed to update customer analytics: $e');
+    }
+  }
+
+  Future<CustomerAnalyticsModel?> getCustomerAnalytics(String customerId) async {
+    try {
+      final doc = await _firestore.collection('customerAnalytics').doc(customerId).get();
+      if (doc.exists) {
+        return CustomerAnalyticsModel.fromJson({
+          ...doc.data()!,
+          'customerId': doc.id,
+        });
+      }
+      return null;
+    } catch (e) {
+      throw Exception('Failed to get customer analytics: $e');
+    }
+  }
+
+  // Advanced Product Features
+  Stream<List<ProductModel>> getRecommendedProducts(String customerId, {int limit = 10}) async* {
+    try {
+      final profile = await getCustomerProfile(customerId);
+      final analytics = await getCustomerAnalytics(customerId);
+      
+      if (profile != null && analytics != null) {
+        final preferences = profile.preferences;
+        final topCategories = analytics.topCategories;
+        
+        Query query = _firestore.collection('products').where('isAvailable', isEqualTo: true);
+        
+        if (preferences.isNotEmpty) {
+          query = query.where('category', whereIn: preferences.take(10).toList());
+        }
+        
+        yield* query
+            .limit(limit)
+            .snapshots()
+            .map((snapshot) => snapshot.docs
+                .map((doc) => ProductModel.fromJson({
+                      ...doc.data(),
+                      'id': doc.id,
+                    }))
+                .toList());
+      }
+    } catch (e) {
+      throw Exception('Failed to get recommended products: $e');
+    }
+  }
+
+  Stream<List<ProductModel>> getTrendingProducts({int limit = 10}) {
+    return _firestore
+        .collection('products')
+        .where('isAvailable', isEqualTo: true)
+        .orderBy('rating', descending: true)
+        .limit(limit)
+        .snapshots()
+        .map((snapshot) => snapshot.docs
+            .map((doc) => ProductModel.fromJson({
+                  ...doc.data(),
+                  'id': doc.id,
+                }))
+            .toList());
+  }
+
+  // Advanced Order Features
+  Future<void> updateOrderStatus(String orderId, OrderStatus status) async {
+    try {
+      await _firestore.collection('orders').doc(orderId).update({
+        'status': status.toString().split('.').last,
+        'updatedAt': DateTime.now().toIso8601String(),
+      });
+    } catch (e) {
+      throw Exception('Failed to update order status: $e');
+    }
+  }
+
+  Future<List<OrderModel>> getOrdersByStatus(String customerId, OrderStatus status) async {
+    try {
+      final snapshot = await _firestore
+          .collection('orders')
+          .where('customerId', isEqualTo: customerId)
+          .where('status', isEqualTo: status.toString().split('.').last)
+          .orderBy('orderDate', descending: true)
+          .get();
+
+      return snapshot.docs
+          .map((doc) => OrderModel.fromJson({
+                ...doc.data(),
+                'id': doc.id,
+              }))
+          .toList();
+    } catch (e) {
+      throw Exception('Failed to get orders by status: $e');
+    }
+  }
+
+  // Customer Search and Filter
+  Stream<List<CustomerProfileModel>> searchCustomers({
+    String? searchQuery,
+    CustomerTier? tier,
+    CustomerStatus? status,
+    String? city,
+    int limit = 20,
+  }) {
+    Query query = _firestore.collection('customerProfiles');
+    
+    if (tier != null) {
+      query = query.where('tier', isEqualTo: tier.toString().split('.').last);
+    }
+    
+    if (status != null) {
+      query = query.where('status', isEqualTo: status.toString().split('.').last);
+    }
+    
+    if (city != null) {
+      query = query.where('city', isEqualTo: city);
+    }
+    
+    return query
+        .limit(limit)
+        .snapshots()
+        .map((snapshot) {
+          var customers = snapshot.docs
+              .map((doc) => CustomerProfileModel.fromJson({
+                    ...doc.data(),
+                    'id': doc.id,
+                  }))
+              .toList();
+          
+          if (searchQuery != null && searchQuery.isNotEmpty) {
+            customers = customers.where((customer) =>
+                customer.name.toLowerCase().contains(searchQuery.toLowerCase()) ||
+                customer.email.toLowerCase().contains(searchQuery.toLowerCase()) ||
+                (customer.phone?.toLowerCase().contains(searchQuery.toLowerCase()) ?? false)
+            ).toList();
+          }
+          
+          return customers;
+        });
+  }
+
+  // Bulk Operations
+  Future<void> bulkUpdateCustomerStatus(List<String> customerIds, CustomerStatus status) async {
+    try {
+      final batch = _firestore.batch();
+      
+      for (final customerId in customerIds) {
+        final docRef = _firestore.collection('customerProfiles').doc(customerId);
+        batch.update(docRef, {
+          'status': status.toString().split('.').last,
+          'updatedAt': DateTime.now().toIso8601String(),
+        });
+      }
+      
+      await batch.commit();
+    } catch (e) {
+      throw Exception('Failed to bulk update customer status: $e');
+    }
+  }
+
+  Future<void> bulkUpdateCustomerTier(List<String> customerIds, CustomerTier tier) async {
+    try {
+      final batch = _firestore.batch();
+      
+      for (final customerId in customerIds) {
+        final docRef = _firestore.collection('customerProfiles').doc(customerId);
+        batch.update(docRef, {
+          'tier': tier.toString().split('.').last,
+          'updatedAt': DateTime.now().toIso8601String(),
+        });
+      }
+      
+      await batch.commit();
+    } catch (e) {
+      throw Exception('Failed to bulk update customer tier: $e');
+    }
+  }
+
+  // Customer Analytics Dashboard
+  Future<Map<String, dynamic>> getCustomerAnalyticsSummary() async {
+    try {
+      final customersSnapshot = await _firestore.collection('customerProfiles').get();
+      final ordersSnapshot = await _firestore.collection('orders').get();
+      
+      final totalCustomers = customersSnapshot.docs.length;
+      final totalOrders = ordersSnapshot.docs.length;
+      
+      double totalRevenue = 0;
+      for (final doc in ordersSnapshot.docs) {
+        final orderData = doc.data();
+        if (orderData['status'] != 'cancelled') {
+          totalRevenue += (orderData['totalAmount'] ?? 0).toDouble();
+        }
+      }
+      
+      final activeCustomers = customersSnapshot.docs
+          .where((doc) => doc.data()['status'] == 'active')
+          .length;
+      
+      final premiumCustomers = customersSnapshot.docs
+          .where((doc) => doc.data()['tier'] == 'platinum' || doc.data()['tier'] == 'gold')
+          .length;
+      
+      return {
+        'totalCustomers': totalCustomers,
+        'activeCustomers': activeCustomers,
+        'premiumCustomers': premiumCustomers,
+        'totalOrders': totalOrders,
+        'totalRevenue': totalRevenue,
+        'averageOrderValue': totalOrders > 0 ? totalRevenue / totalOrders : 0,
+        'customerRetentionRate': totalCustomers > 0 ? activeCustomers / totalCustomers : 0,
+      };
+    } catch (e) {
+      throw Exception('Failed to get customer analytics summary: $e');
+    }
+  }
+
+  // Customer Segmentation
+  Future<Map<String, int>> getCustomerSegmentation() async {
+    try {
+      final snapshot = await _firestore.collection('customerProfiles').get();
+      
+      final segments = <String, int>{};
+      
+      for (final doc in snapshot.docs) {
+        final data = doc.data();
+        final tier = data['tier'] ?? 'bronze';
+        final status = data['status'] ?? 'active';
+        
+        final segment = '${tier}_${status}';
+        segments[segment] = (segments[segment] ?? 0) + 1;
+      }
+      
+      return segments;
+    } catch (e) {
+      throw Exception('Failed to get customer segmentation: $e');
+    }
+  }
+
+  // Customer Notifications
+  Future<void> sendCustomerNotification(String customerId, Map<String, dynamic> notification) async {
+    try {
+      await _firestore.collection('customerNotifications').add({
+        'customerId': customerId,
+        'title': notification['title'],
+        'message': notification['message'],
+        'type': notification['type'] ?? 'general',
+        'isRead': false,
+        'createdAt': DateTime.now().toIso8601String(),
+      });
+    } catch (e) {
+      throw Exception('Failed to send customer notification: $e');
+    }
+  }
+
+  Stream<List<Map<String, dynamic>>> getCustomerNotifications(String customerId) {
+    return _firestore
+        .collection('customerNotifications')
+        .where('customerId', isEqualTo: customerId)
+        .orderBy('createdAt', descending: true)
+        .snapshots()
+        .map((snapshot) => snapshot.docs
+            .map((doc) => {
+                  ...doc.data(),
+                  'id': doc.id,
+                })
+            .toList());
+  }
+
+  Future<void> markNotificationAsRead(String notificationId) async {
+    try {
+      await _firestore.collection('customerNotifications').doc(notificationId).update({
+        'isRead': true,
+        'readAt': DateTime.now().toIso8601String(),
+      });
+    } catch (e) {
+      throw Exception('Failed to mark notification as read: $e');
+    }
   }
 } 
