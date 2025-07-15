@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../providers/admin_provider.dart';
 import '../../../auth/data/models/user_model.dart';
-import '../providers/admin_provider.dart';
 
 class UserManagementPage extends ConsumerStatefulWidget {
   const UserManagementPage({super.key});
@@ -13,13 +13,10 @@ class UserManagementPage extends ConsumerStatefulWidget {
 class _UserManagementPageState extends ConsumerState<UserManagementPage> {
   String _searchQuery = '';
   String _selectedRole = 'All';
-  bool _showOnlyActive = true;
-
-  final List<String> _roles = ['All', 'admin', 'customer', 'tailor', 'volunteer'];
 
   @override
   Widget build(BuildContext context) {
-    final allUsers = ref.watch(allUsersProvider);
+    final users = ref.watch(warehouseUsersProvider);
 
     return Padding(
       padding: const EdgeInsets.all(16),
@@ -35,17 +32,14 @@ class _UserManagementPageState extends ConsumerState<UserManagementPage> {
                 size: 32,
               ),
               const SizedBox(width: 12),
-              Text(
-                'User Management',
-                style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                  fontWeight: FontWeight.bold,
+              Expanded(
+                child: Text(
+                  'User Management',
+                  style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                    fontWeight: FontWeight.bold,
+                  ),
+                  overflow: TextOverflow.ellipsis,
                 ),
-              ),
-              const Spacer(),
-              ElevatedButton.icon(
-                onPressed: () => _showAddUserDialog(context),
-                icon: const Icon(Icons.person_add),
-                label: const Text('Add User'),
               ),
             ],
           ),
@@ -57,9 +51,9 @@ class _UserManagementPageState extends ConsumerState<UserManagementPage> {
 
           // Users List
           Expanded(
-            child: allUsers.when(
-              data: (users) {
-                final filteredUsers = _filterUsers(users);
+            child: users.when(
+              data: (usersList) {
+                final filteredUsers = _filterUsers(usersList);
                 
                 if (filteredUsers.isEmpty) {
                   return const Center(
@@ -90,74 +84,55 @@ class _UserManagementPageState extends ConsumerState<UserManagementPage> {
     return Card(
       child: Padding(
         padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+        child: Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          crossAxisAlignment: WrapCrossAlignment.center,
           children: [
-            Text(
-              'Filters',
-              style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                fontWeight: FontWeight.bold,
+            SizedBox(
+              width: 200,
+              child: TextField(
+                decoration: const InputDecoration(
+                  hintText: 'Search users...',
+                  prefixIcon: Icon(Icons.search, size: 18),
+                  border: OutlineInputBorder(),
+                  isDense: true,
+                  contentPadding: EdgeInsets.symmetric(vertical: 8, horizontal: 8),
+                ),
+                style: const TextStyle(fontSize: 13),
+                onChanged: (value) {
+                  setState(() {
+                    _searchQuery = value;
+                  });
+                },
               ),
             ),
-            const SizedBox(height: 12),
-            Row(
-              children: [
-                // Search
-                Expanded(
-                  flex: 2,
-                  child: TextField(
-                    decoration: const InputDecoration(
-                      hintText: 'Search users...',
-                      prefixIcon: Icon(Icons.search),
-                      border: OutlineInputBorder(),
+            SizedBox(
+              width: 120,
+              child: DropdownButtonFormField<String>(
+                decoration: const InputDecoration(
+                  labelText: 'Role',
+                  border: OutlineInputBorder(),
+                  isDense: true,
+                  contentPadding: EdgeInsets.symmetric(vertical: 8, horizontal: 8),
+                ),
+                value: _selectedRole,
+                items: ['All', 'admin', 'tailor', 'customer', 'volunteer', 'warehouse'].map((role) {
+                  return DropdownMenuItem(
+                    value: role,
+                    child: Text(
+                      role.toUpperCase(),
+                      style: const TextStyle(fontSize: 11, color: Colors.green, fontWeight: FontWeight.bold),
                     ),
-                    onChanged: (value) {
-                      setState(() {
-                        _searchQuery = value;
-                      });
-                    },
-                  ),
-                ),
-                const SizedBox(width: 16),
-                // Role Filter
-                Expanded(
-                  child: DropdownButtonFormField<String>(
-                    decoration: const InputDecoration(
-                      labelText: 'Role',
-                      border: OutlineInputBorder(),
-                    ),
-                    value: _selectedRole,
-                    items: _roles.map((role) {
-                      return DropdownMenuItem(
-                        value: role,
-                        child: Text(role),
-                      );
-                    }).toList(),
-                    onChanged: (value) {
-                      setState(() {
-                        _selectedRole = value!;
-                      });
-                    },
-                  ),
-                ),
-                const SizedBox(width: 16),
-                // Active Filter
-                Expanded(
-                  child: Row(
-                    children: [
-                      Checkbox(
-                        value: _showOnlyActive,
-                        onChanged: (value) {
-                          setState(() {
-                            _showOnlyActive = value!;
-                          });
-                        },
-                      ),
-                      const Text('Active Only'),
-                    ],
-                  ),
-                ),
-              ],
+                  );
+                }).toList(),
+                onChanged: (value) {
+                  setState(() {
+                    _selectedRole = value!;
+                  });
+                },
+                style: const TextStyle(fontSize: 11, color: Colors.green, fontWeight: FontWeight.bold),
+              ),
             ),
           ],
         ),
@@ -171,22 +146,22 @@ class _UserManagementPageState extends ConsumerState<UserManagementPage> {
       child: ListTile(
         leading: CircleAvatar(
           backgroundColor: _getRoleColor(user.role),
-          child: Icon(
-            _getRoleIcon(user.role),
-            color: Colors.white,
-            size: 20,
+          child: Text(
+            user.name.isNotEmpty ? user.name[0].toUpperCase() : 'U',
+            style: const TextStyle(
+              color: Colors.white,
+              fontWeight: FontWeight.bold,
+            ),
           ),
         ),
         title: Text(
-          user.name,
-          style: TextStyle(
-            fontWeight: user.isActive ? FontWeight.bold : FontWeight.normal,
-          ),
+          user.name.isNotEmpty ? user.name : 'Unknown User',
+          style: const TextStyle(fontWeight: FontWeight.bold),
         ),
         subtitle: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(user.email),
+            Text('Email: ${user.email}'),
             const SizedBox(height: 4),
             Row(
               children: [
@@ -197,10 +172,10 @@ class _UserManagementPageState extends ConsumerState<UserManagementPage> {
                     borderRadius: BorderRadius.circular(12),
                   ),
                   child: Text(
-                    user.role.toUpperCase(),
-                    style: TextStyle(
+                    user.role.name.toUpperCase(),
+                    style: const TextStyle(
                       fontSize: 10,
-                      color: _getRoleColor(user.role),
+                      color: Colors.green,
                       fontWeight: FontWeight.bold,
                     ),
                   ),
@@ -228,22 +203,16 @@ class _UserManagementPageState extends ConsumerState<UserManagementPage> {
         trailing: PopupMenuButton(
           itemBuilder: (context) => [
             const PopupMenuItem(
-              value: 'edit',
-              child: Text('Edit'),
+              value: 'view',
+              child: Text('View Details'),
             ),
-            if (user.isActive)
-              const PopupMenuItem(
-                value: 'deactivate',
-                child: Text('Deactivate'),
-              )
-            else
-              const PopupMenuItem(
-                value: 'activate',
-                child: Text('Activate'),
-              ),
             const PopupMenuItem(
-              value: 'delete',
-              child: Text('Delete'),
+              value: 'activate',
+              child: Text('Activate'),
+            ),
+            const PopupMenuItem(
+              value: 'deactivate',
+              child: Text('Deactivate'),
             ),
           ],
           onSelected: (value) => _handleUserAction(context, user, value),
@@ -253,65 +222,49 @@ class _UserManagementPageState extends ConsumerState<UserManagementPage> {
     );
   }
 
-  Color _getRoleColor(String role) {
-    switch (role.toLowerCase()) {
-      case 'admin':
+  Color _getRoleColor(UserRole role) {
+    switch (role) {
+      case UserRole.admin:
         return Colors.red;
-      case 'customer':
-        return Colors.green;
-      case 'tailor':
+      case UserRole.tailor:
         return Colors.blue;
-      case 'volunteer':
+      case UserRole.customer:
+        return Colors.green;
+      case UserRole.volunteer:
+        return Colors.orange;
+      case UserRole.warehouse:
         return Colors.purple;
       default:
         return Colors.grey;
     }
   }
 
-  IconData _getRoleIcon(String role) {
-    switch (role.toLowerCase()) {
-      case 'admin':
-        return Icons.admin_panel_settings;
-      case 'customer':
-        return Icons.shopping_bag;
-      case 'tailor':
-        return Icons.cut;
-      case 'volunteer':
-        return Icons.volunteer_activism;
-      default:
-        return Icons.person;
-    }
-  }
-
   List<UserModel> _filterUsers(List<UserModel> users) {
     return users.where((user) {
       // Search filter
-      final matchesSearch = user.name.toLowerCase().contains(_searchQuery.toLowerCase()) ||
-          user.email.toLowerCase().contains(_searchQuery.toLowerCase());
+      final name = user.name.toLowerCase();
+      final email = user.email.toLowerCase();
+      final matchesSearch = name.contains(_searchQuery.toLowerCase()) ||
+          email.contains(_searchQuery.toLowerCase());
 
       // Role filter
-      final matchesRole = _selectedRole == 'All' || user.role == _selectedRole;
+      final matchesRole = _selectedRole == 'All' || 
+          user.role.name.toLowerCase() == _selectedRole.toLowerCase();
 
-      // Active filter
-      final matchesActive = !_showOnlyActive || user.isActive;
-
-      return matchesSearch && matchesRole && matchesActive;
+      return matchesSearch && matchesRole;
     }).toList();
   }
 
   void _handleUserAction(BuildContext context, UserModel user, String action) {
     switch (action) {
-      case 'edit':
-        _showEditUserDialog(context, user);
+      case 'view':
+        _showUserDetails(context, user);
         break;
       case 'activate':
-        ref.read(adminProvider.notifier).activateUser(user.id);
+        _activateUser(context, user);
         break;
       case 'deactivate':
-        ref.read(adminProvider.notifier).deactivateUser(user.id);
-        break;
-      case 'delete':
-        _showDeleteUserDialog(context, user);
+        _deactivateUser(context, user);
         break;
     }
   }
@@ -332,17 +285,16 @@ class _UserManagementPageState extends ConsumerState<UserManagementPage> {
               const SizedBox(height: 8),
               Text('Phone: ${user.phone ?? 'Not provided'}'),
               const SizedBox(height: 8),
-              Text('Role: ${user.role}'),
+              Text(
+                'Role: ${user.role.name.toUpperCase()}',
+                style: const TextStyle(color: Colors.green, fontWeight: FontWeight.bold),
+              ),
               const SizedBox(height: 8),
               Text('Status: ${user.isActive ? 'Active' : 'Inactive'}'),
               const SizedBox(height: 8),
               Text('Address: ${user.address ?? 'Not provided'}'),
               const SizedBox(height: 8),
               Text('Created: ${_formatDate(user.createdAt)}'),
-              if (user.updatedAt != null) ...[
-                const SizedBox(height: 8),
-                Text('Updated: ${_formatDate(user.updatedAt!)}'),
-              ],
             ],
           ),
         ),
@@ -356,63 +308,66 @@ class _UserManagementPageState extends ConsumerState<UserManagementPage> {
     );
   }
 
-  void _showAddUserDialog(BuildContext context) {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Add User'),
-        content: const Text('User creation functionality will be implemented here.'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(),
-            child: const Text('Close'),
+  void _activateUser(BuildContext context, UserModel user) async {
+    try {
+      final success = await ref.read(activateWarehouseUserProvider(user.id).future);
+      if (success) {
+        ref.invalidate(warehouseUsersProvider);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('${user.name} activated successfully!'),
+            backgroundColor: Colors.green,
           ),
-        ],
-      ),
-    );
+        );
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Failed to activate user. Please try again.'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Error: $e'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
   }
 
-  void _showEditUserDialog(BuildContext context, UserModel user) {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: Text('Edit User - ${user.name}'),
-        content: const Text('User editing functionality will be implemented here.'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(),
-            child: const Text('Close'),
+  void _deactivateUser(BuildContext context, UserModel user) async {
+    try {
+      final success = await ref.read(deactivateWarehouseUserProvider(user.id).future);
+      if (success) {
+        ref.invalidate(warehouseUsersProvider);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('${user.name} deactivated successfully!'),
+            backgroundColor: Colors.green,
           ),
-        ],
-      ),
-    );
+        );
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Failed to deactivate user. Please try again.'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Error: $e'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
   }
 
-  void _showDeleteUserDialog(BuildContext context, UserModel user) {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Delete User'),
-        content: Text('Are you sure you want to delete ${user.name}? This action cannot be undone.'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(),
-            child: const Text('Cancel'),
-          ),
-          TextButton(
-            onPressed: () {
-              ref.read(adminProvider.notifier).deleteUser(user.id);
-              Navigator.of(context).pop();
-            },
-            style: TextButton.styleFrom(foregroundColor: Colors.red),
-            child: const Text('Delete'),
-          ),
-        ],
-      ),
-    );
-  }
-
-  String _formatDate(DateTime date) {
+  String _formatDate(DateTime? date) {
+    if (date == null) return 'Unknown';
     return '${date.day}/${date.month}/${date.year}';
   }
 } 

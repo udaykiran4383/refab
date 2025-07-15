@@ -1,10 +1,8 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:refab_app/features/warehouse/data/repositories/warehouse_repository.dart';
 import 'package:refab_app/features/warehouse/data/models/inventory_model.dart';
-import 'package:refab_app/features/warehouse/data/models/processing_task_model.dart';
-import 'package:refab_app/features/warehouse/data/models/warehouse_analytics_model.dart';
 import 'package:refab_app/features/warehouse/data/models/warehouse_worker_model.dart';
-import 'package:refab_app/features/warehouse/data/models/warehouse_location_model.dart';
+import 'package:refab_app/features/warehouse/data/models/warehouse_assignment_model.dart';
 
 // Repository Provider
 final warehouseRepositoryProvider = Provider<WarehouseRepository>((ref) {
@@ -13,6 +11,52 @@ final warehouseRepositoryProvider = Provider<WarehouseRepository>((ref) {
 
 // Warehouse ID Provider (for multi-warehouse support)
 final warehouseIdProvider = StateProvider<String>((ref) => 'main_warehouse');
+
+// ==================== WAREHOUSE DETAIL PROVIDERS ====================
+
+// Provider to get warehouse details by ID - THIS WAS MISSING!
+final warehouseByIdProvider = FutureProvider.family<Map<String, dynamic>?, String>((ref, warehouseId) async {
+  print('🏭 [WAREHOUSE_PROVIDER] Fetching warehouse details for ID: $warehouseId');
+  try {
+    final repository = ref.read(warehouseRepositoryProvider);
+    final warehouseData = await repository.getWarehouseDetails(warehouseId);
+    if (warehouseData != null) {
+      print('🏭 [WAREHOUSE_PROVIDER] Found warehouse: ${warehouseData['name']}');
+      return warehouseData;
+    }
+    print('🏭 [WAREHOUSE_PROVIDER] Warehouse not found: $warehouseId');
+    return null;
+  } catch (e) {
+    print('🏭 [WAREHOUSE_PROVIDER] Error fetching warehouse: $e');
+    return null;
+  }
+});
+
+// Provider to get all available warehouses
+final availableWarehousesProvider = FutureProvider<List<Map<String, dynamic>>>((ref) async {
+  print('🏭 [WAREHOUSE_PROVIDER] Fetching all available warehouses');
+  try {
+    final repository = ref.read(warehouseRepositoryProvider);
+    final warehouses = await repository.getAvailableWarehouses();
+    print('🏭 [WAREHOUSE_PROVIDER] Found ${warehouses.length} available warehouses');
+    return warehouses;
+  } catch (e) {
+    print('🏭 [WAREHOUSE_PROVIDER] Error fetching available warehouses: $e');
+    rethrow;
+  }
+});
+
+// Real-time provider for logistics assignments with warehouse data
+final logisticsAssignmentsWithWarehouseProvider = StreamProvider.family<List<Map<String, dynamic>>, String>((ref, warehouseId) {
+  print('🏭 [WAREHOUSE_PROVIDER] Setting up real-time logistics assignments stream for warehouse: $warehouseId');
+  try {
+    final repository = ref.read(warehouseRepositoryProvider);
+    return repository.getLogisticsAssignmentsStream(warehouseId);
+  } catch (e) {
+    print('🏭 [WAREHOUSE_PROVIDER] Error setting up logistics assignments stream: $e');
+    rethrow;
+  }
+});
 
 // ==================== INVENTORY PROVIDERS ====================
 
@@ -31,7 +75,7 @@ final inventoryByStatusProvider = StreamProvider.family<List<InventoryModel>, Ma
   return repository.getInventoryItems(
     warehouseId: filters['warehouseId'],
     status: filters['status'],
-    category: filters['category'],
+    fabricCategory: filters['fabricCategory'],
     qualityGrade: filters['qualityGrade'],
   );
 });
@@ -44,29 +88,6 @@ final lowStockAlertsProvider = FutureProvider.family<List<InventoryModel>, Strin
 final inventoryByCategoryProvider = FutureProvider.family<List<InventoryModel>, Map<String, String>>((ref, params) async {
   final repository = ref.watch(warehouseRepositoryProvider);
   return await repository.getInventoryByCategory(params['warehouseId']!, params['category']!);
-});
-
-// ==================== TASK PROVIDERS ====================
-
-final processingTasksProvider = StreamProvider.family<List<ProcessingTaskModel>, String>((ref, warehouseId) {
-  final repository = ref.watch(warehouseRepositoryProvider);
-  return repository.getProcessingTasks(warehouseId: warehouseId);
-});
-
-final tasksByStatusProvider = StreamProvider.family<List<ProcessingTaskModel>, Map<String, dynamic>>((ref, filters) {
-  final repository = ref.watch(warehouseRepositoryProvider);
-  return repository.getProcessingTasks(
-    warehouseId: filters['warehouseId'],
-    status: filters['status'],
-    workerId: filters['workerId'],
-    taskType: filters['taskType'],
-  );
-});
-
-final urgentTasksProvider = StreamProvider.family<List<ProcessingTaskModel>, String>((ref, warehouseId) {
-  final repository = ref.watch(warehouseRepositoryProvider);
-  return repository.getProcessingTasks(warehouseId: warehouseId)
-      .map((tasks) => tasks.where((task) => task.isUrgent || task.isOverdue).toList());
 });
 
 // ==================== WORKER PROVIDERS ====================
@@ -89,47 +110,6 @@ final workersByRoleProvider = StreamProvider.family<List<WarehouseWorkerModel>, 
     status: filters['status'],
     role: filters['role'],
   );
-});
-
-// ==================== LOCATION PROVIDERS ====================
-
-final warehouseLocationsProvider = StreamProvider.family<List<WarehouseLocationModel>, String>((ref, warehouseId) {
-  final repository = ref.watch(warehouseRepositoryProvider);
-  return repository.getLocations(warehouseId: warehouseId);
-});
-
-final availableLocationsProvider = StreamProvider.family<List<WarehouseLocationModel>, String>((ref, warehouseId) {
-  final repository = ref.watch(warehouseRepositoryProvider);
-  return repository.getLocations(warehouseId: warehouseId, status: 'available')
-      .map((locations) => locations.where((location) => location.isAvailable).toList());
-});
-
-final locationsByTypeProvider = StreamProvider.family<List<WarehouseLocationModel>, Map<String, dynamic>>((ref, filters) {
-  final repository = ref.watch(warehouseRepositoryProvider);
-  return repository.getLocations(
-    warehouseId: filters['warehouseId'],
-    status: filters['status'],
-    type: filters['type'],
-  );
-});
-
-// ==================== ANALYTICS PROVIDERS ====================
-
-final warehouseAnalyticsProvider = FutureProvider.family<WarehouseAnalyticsModel, String>((ref, warehouseId) async {
-  final repository = ref.watch(warehouseRepositoryProvider);
-  return await repository.getWarehouseAnalytics(warehouseId);
-});
-
-final adminDashboardDataProvider = FutureProvider.family<Map<String, dynamic>, String>((ref, warehouseId) async {
-  final repository = ref.watch(warehouseRepositoryProvider);
-  return await repository.getAdminDashboardData(warehouseId);
-});
-
-// ==================== INTEGRATION PROVIDERS ====================
-
-final logisticsNotificationsProvider = FutureProvider.family<List<Map<String, dynamic>>, String>((ref, warehouseId) async {
-  final repository = ref.watch(warehouseRepositoryProvider);
-  return await repository.getLogisticsNotifications(warehouseId);
 });
 
 // ==================== WAREHOUSE NOTIFIER ====================
@@ -196,51 +176,6 @@ class WarehouseNotifier extends StateNotifier<AsyncValue<void>> {
     }
   }
 
-  // Task Operations
-  Future<void> createProcessingTask(ProcessingTaskModel task) async {
-    state = const AsyncValue.loading();
-    try {
-      await _repository.createProcessingTask(task);
-      _ref.invalidate(processingTasksProvider(task.warehouseId));
-      state = const AsyncValue.data(null);
-    } catch (e, stack) {
-      state = AsyncValue.error(e, stack);
-    }
-  }
-
-  Future<void> updateTaskStatus(String taskId, TaskStatus status) async {
-    state = const AsyncValue.loading();
-    try {
-      await _repository.updateTaskStatus(taskId, status);
-      _ref.invalidate(processingTasksProvider('main_warehouse')); // TODO: Get actual warehouse ID
-      state = const AsyncValue.data(null);
-    } catch (e, stack) {
-      state = AsyncValue.error(e, stack);
-    }
-  }
-
-  Future<void> assignTaskToWorker(String taskId, String workerId, String workerName) async {
-    state = const AsyncValue.loading();
-    try {
-      await _repository.assignTaskToWorker(taskId, workerId, workerName);
-      _ref.invalidate(processingTasksProvider('main_warehouse')); // TODO: Get actual warehouse ID
-      state = const AsyncValue.data(null);
-    } catch (e, stack) {
-      state = AsyncValue.error(e, stack);
-    }
-  }
-
-  Future<void> completeTask(String taskId, Map<String, dynamic> completionData) async {
-    state = const AsyncValue.loading();
-    try {
-      await _repository.completeTask(taskId, completionData);
-      _ref.invalidate(processingTasksProvider('main_warehouse')); // TODO: Get actual warehouse ID
-      state = const AsyncValue.data(null);
-    } catch (e, stack) {
-      state = AsyncValue.error(e, stack);
-    }
-  }
-
   // Worker Operations
   Future<void> createWorker(WarehouseWorkerModel worker) async {
     state = const AsyncValue.loading();
@@ -257,7 +192,7 @@ class WarehouseNotifier extends StateNotifier<AsyncValue<void>> {
     state = const AsyncValue.loading();
     try {
       await _repository.updateWorker(workerId, updates);
-      _ref.invalidate(warehouseWorkersProvider('main_warehouse')); // TODO: Get actual warehouse ID
+      _ref.invalidate(warehouseWorkersProvider('main_warehouse'));
       state = const AsyncValue.data(null);
     } catch (e, stack) {
       state = AsyncValue.error(e, stack);
@@ -268,85 +203,7 @@ class WarehouseNotifier extends StateNotifier<AsyncValue<void>> {
     state = const AsyncValue.loading();
     try {
       await _repository.updateWorkerPerformance(workerId, metrics);
-      _ref.invalidate(warehouseWorkersProvider('main_warehouse')); // TODO: Get actual warehouse ID
-      state = const AsyncValue.data(null);
-    } catch (e, stack) {
-      state = AsyncValue.error(e, stack);
-    }
-  }
-
-  // Location Operations
-  Future<void> createLocation(WarehouseLocationModel location) async {
-    state = const AsyncValue.loading();
-    try {
-      await _repository.createLocation(location);
-      _ref.invalidate(warehouseLocationsProvider(location.warehouseId));
-      state = const AsyncValue.data(null);
-    } catch (e, stack) {
-      state = AsyncValue.error(e, stack);
-    }
-  }
-
-  Future<void> updateLocation(String locationId, Map<String, dynamic> updates) async {
-    state = const AsyncValue.loading();
-    try {
-      await _repository.updateLocation(locationId, updates);
-      _ref.invalidate(warehouseLocationsProvider('main_warehouse')); // TODO: Get actual warehouse ID
-      state = const AsyncValue.data(null);
-    } catch (e, stack) {
-      state = AsyncValue.error(e, stack);
-    }
-  }
-
-  Future<void> updateLocationOccupancy(String locationId, double occupancy) async {
-    state = const AsyncValue.loading();
-    try {
-      await _repository.updateLocationOccupancy(locationId, occupancy);
-      _ref.invalidate(warehouseLocationsProvider('main_warehouse')); // TODO: Get actual warehouse ID
-      state = const AsyncValue.data(null);
-    } catch (e, stack) {
-      state = AsyncValue.error(e, stack);
-    }
-  }
-
-  // Batch Operations
-  Future<void> processBatch(List<String> itemIds, Map<String, dynamic> processingData) async {
-    state = const AsyncValue.loading();
-    try {
-      await _repository.processBatch(itemIds, processingData);
-      _ref.invalidate(inventoryItemsProvider('main_warehouse')); // TODO: Get actual warehouse ID
-      state = const AsyncValue.data(null);
-    } catch (e, stack) {
-      state = AsyncValue.error(e, stack);
-    }
-  }
-
-  Future<void> moveToReady(List<String> itemIds) async {
-    state = const AsyncValue.loading();
-    try {
-      await _repository.moveToReady(itemIds);
-      _ref.invalidate(inventoryItemsProvider('main_warehouse')); // TODO: Get actual warehouse ID
-      state = const AsyncValue.data(null);
-    } catch (e, stack) {
-      state = AsyncValue.error(e, stack);
-    }
-  }
-
-  // Integration Operations
-  Future<void> notifyLogisticsOfReadyItems(String warehouseId, List<String> itemIds) async {
-    state = const AsyncValue.loading();
-    try {
-      await _repository.notifyLogisticsOfReadyItems(warehouseId, itemIds);
-      state = const AsyncValue.data(null);
-    } catch (e, stack) {
-      state = AsyncValue.error(e, stack);
-    }
-  }
-
-  Future<void> sendAdminAlert(String warehouseId, String alertType, String message) async {
-    state = const AsyncValue.loading();
-    try {
-      await _repository.sendAdminAlert(warehouseId, alertType, message);
+      _ref.invalidate(warehouseWorkersProvider('main_warehouse'));
       state = const AsyncValue.data(null);
     } catch (e, stack) {
       state = AsyncValue.error(e, stack);
@@ -358,22 +215,98 @@ class WarehouseNotifier extends StateNotifier<AsyncValue<void>> {
     _ref.invalidate(inventoryItemsProvider(warehouseId));
   }
 
-  Future<void> refreshTasks(String warehouseId) async {
-    _ref.invalidate(processingTasksProvider(warehouseId));
-  }
-
   Future<void> refreshWorkers(String warehouseId) async {
     _ref.invalidate(warehouseWorkersProvider(warehouseId));
   }
 
-  Future<void> refreshLocations(String warehouseId) async {
-    _ref.invalidate(warehouseLocationsProvider(warehouseId));
+  // ==================== WAREHOUSE ASSIGNMENT OPERATIONS ====================
+
+  Future<String> createWarehouseAssignment(WarehouseAssignmentModel assignment) async {
+    state = const AsyncValue.loading();
+    try {
+      final assignmentId = await _repository.createWarehouseAssignment(assignment);
+      _ref.invalidate(warehouseAssignmentsProvider(assignment.warehouseId));
+      state = const AsyncValue.data(null);
+      return assignmentId;
+    } catch (e, stack) {
+      state = AsyncValue.error(e, stack);
+      rethrow;
+    }
   }
 
-  Future<void> refreshAnalytics(String warehouseId) async {
-    _ref.invalidate(warehouseAnalyticsProvider(warehouseId));
+  Future<void> updateAssignmentStatus(String assignmentId, WarehouseAssignmentStatus status) async {
+    state = const AsyncValue.loading();
+    try {
+      await _repository.updateAssignmentStatus(assignmentId, status);
+      _ref.invalidate(warehouseAssignmentsProvider('main_warehouse'));
+      state = const AsyncValue.data(null);
+    } catch (e, stack) {
+      state = AsyncValue.error(e, stack);
+    }
+  }
+
+  Future<void> markAssignmentArrived(String assignmentId) async {
+    state = const AsyncValue.loading();
+    try {
+      await _repository.markAssignmentArrived(assignmentId, DateTime.now());
+      _ref.invalidate(warehouseAssignmentsProvider('main_warehouse'));
+      state = const AsyncValue.data(null);
+    } catch (e, stack) {
+      state = AsyncValue.error(e, stack);
+    }
+  }
+
+  Future<void> addAssignmentNotes(String assignmentId, String notes) async {
+    state = const AsyncValue.loading();
+    try {
+      await _repository.addAssignmentNotes(assignmentId, notes);
+      _ref.invalidate(warehouseAssignmentsProvider('main_warehouse'));
+      state = const AsyncValue.data(null);
+    } catch (e, stack) {
+      state = AsyncValue.error(e, stack);
+    }
+  }
+
+  Future<void> updateAssignmentSection(String assignmentId, WarehouseSection section) async {
+    state = const AsyncValue.loading();
+    try {
+      await _repository.updateAssignmentSection(assignmentId, section);
+      _ref.invalidate(warehouseAssignmentsProvider('main_warehouse'));
+      state = const AsyncValue.data(null);
+    } catch (e, stack) {
+      state = AsyncValue.error(e, stack);
+    }
+  }
+
+  Future<void> refreshAssignments(String warehouseId) async {
+    _ref.invalidate(warehouseAssignmentsProvider(warehouseId));
   }
 }
+
+// ==================== WAREHOUSE ASSIGNMENT PROVIDERS ====================
+
+final warehouseAssignmentsProvider = StreamProvider.family<List<WarehouseAssignmentModel>, String>((ref, warehouseId) {
+  final repository = ref.watch(warehouseRepositoryProvider);
+  if (warehouseId == 'all') {
+    return repository.getAllWarehouseAssignments();
+  }
+  return repository.getWarehouseAssignments(warehouseId);
+});
+
+final todayAssignmentsProvider = StreamProvider.family<List<WarehouseAssignmentModel>, String>((ref, warehouseId) {
+  final repository = ref.watch(warehouseRepositoryProvider);
+  return repository.getTodayAssignments(warehouseId);
+});
+
+final inTransitAssignmentsProvider = StreamProvider.family<List<WarehouseAssignmentModel>, String>((ref, warehouseId) {
+  final repository = ref.watch(warehouseRepositoryProvider);
+  return repository.getInTransitAssignments(warehouseId);
+});
+
+final warehouseAssignmentProvider = FutureProvider.family<WarehouseAssignmentModel?, String>((ref, assignmentId) async {
+  final repository = ref.watch(warehouseRepositoryProvider);
+  return await repository.getWarehouseAssignment(assignmentId);
+});
 
 final warehouseNotifierProvider = StateNotifierProvider<WarehouseNotifier, AsyncValue<void>>((ref) {
   final repository = ref.watch(warehouseRepositoryProvider);

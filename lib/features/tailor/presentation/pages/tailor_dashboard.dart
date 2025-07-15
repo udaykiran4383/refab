@@ -1,16 +1,50 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../../auth/data/models/user_model.dart';
 import '../../../auth/providers/auth_provider.dart';
-import '../widgets/pickup_request_card.dart';
 import '../widgets/stats_card.dart';
-import '../widgets/work_progress_card.dart';
 import '../widgets/pickup_workflow_diagram.dart';
 import 'new_pickup_request_page.dart';
 import '../../../customer/presentation/pages/profile_page.dart';
-import '../../data/repositories/tailor_repository.dart';
 import '../../providers/tailor_provider.dart';
 import '../../data/models/pickup_request_model.dart';
+import '../../../logistics/data/repositories/logistics_repository.dart';
+import '../../../logistics/data/models/logistics_assignment_model.dart';
+import '../../../admin/data/repositories/admin_repository.dart';
+import '../../../warehouse/providers/warehouse_provider.dart';
+
+// Provider for logistics repository
+final logisticsRepositoryProvider = Provider<LogisticsRepository>((ref) {
+  return LogisticsRepository();
+});
+
+// Provider for admin repository
+final adminRepositoryProvider = Provider<AdminRepository>((ref) {
+  return AdminRepository();
+});
+
+// Provider to get logistics assignment for a pickup request
+final logisticsAssignmentForPickupProvider = StreamProvider.family<LogisticsAssignmentModel?, String>((ref, pickupRequestId) {
+  print('📦 [TAILOR_DASHBOARD] Setting up logistics assignment provider for pickup request: $pickupRequestId');
+  final repository = ref.watch(logisticsRepositoryProvider);
+  return repository.getLogisticsAssignmentForPickupRequest(pickupRequestId);
+});
+
+// Provider to get user details by user ID
+final userByIdProvider = FutureProvider.family<UserModel?, String>((ref, userId) async {
+  try {
+    final repository = ref.read(adminRepositoryProvider);
+    final userData = await repository.getUser(userId);
+    if (userData != null) {
+      return UserModel.fromJson(userData);
+    }
+    return null;
+  } catch (e) {
+    print('❌ Error fetching user $userId: $e');
+    return null;
+  }
+});
 
 class TailorDashboard extends ConsumerStatefulWidget {
   final UserModel user;
@@ -25,6 +59,7 @@ class _TailorDashboardState extends ConsumerState<TailorDashboard> {
   String _selectedStatus = 'All';
   bool _showCompleted = true;
 
+  // Simplified status filters for tailor workflow
   final List<String> _statusFilters = ['All', 'Pending', 'In Progress', 'Completed', 'Cancelled'];
 
   // Use real data from Firestore instead of mock data
@@ -75,22 +110,12 @@ class _TailorDashboardState extends ConsumerState<TailorDashboard> {
         backgroundColor: Theme.of(context).primaryColor,
         foregroundColor: Colors.white,
         actions: [
-          IconButton(
-            icon: const Icon(Icons.notifications),
-            onPressed: () {
-              _showNotifications();
-            },
-          ),
           PopupMenuButton(
             icon: const Icon(Icons.more_vert),
             itemBuilder: (context) => [
               const PopupMenuItem(
                 value: 'profile',
                 child: Text('Profile'),
-              ),
-              const PopupMenuItem(
-                value: 'settings',
-                child: Text('Settings'),
               ),
               const PopupMenuItem(
                 value: 'help',
@@ -239,18 +264,7 @@ class _TailorDashboardState extends ConsumerState<TailorDashboard> {
                         ),
                       ),
                       const SizedBox(width: 12),
-                      Expanded(
-                        child: _buildQuickActionCard(
-                          context,
-                          'View Schedule',
-                          'Check pickup schedule',
-                          Icons.calendar_today,
-                          Colors.blue,
-                          () {
-                            _showSchedule();
-                          },
-                        ),
-                      ),
+
                     ],
                   ),
                 ],
@@ -404,24 +418,31 @@ class _TailorDashboardState extends ConsumerState<TailorDashboard> {
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Text(
-                  'Request #${request.id}',
-                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                    fontWeight: FontWeight.bold,
+                Expanded(
+                  child: Text(
+                    'Request #${request.id.substring(0, request.id.length > 8 ? 8 : request.id.length)}...',
+                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                      fontWeight: FontWeight.bold,
+                    ),
+                    overflow: TextOverflow.ellipsis,
                   ),
                 ),
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                  decoration: BoxDecoration(
-                    color: statusColor.withOpacity(0.1),
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: Text(
-                    request.statusDisplayName,
-                    style: TextStyle(
-                      color: statusColor,
-                      fontWeight: FontWeight.bold,
-                      fontSize: 12,
+                const SizedBox(width: 8),
+                Flexible(
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: statusColor.withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Text(
+                      request.statusDisplayName,
+                      style: TextStyle(
+                        color: statusColor,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 12,
+                      ),
+                      overflow: TextOverflow.ellipsis,
                     ),
                   ),
                 ),
@@ -453,13 +474,8 @@ class _TailorDashboardState extends ConsumerState<TailorDashboard> {
             
             const SizedBox(height: 16),
             
-            // Work Progress Card
-            WorkProgressCard(
-              request: request,
-              onProgressUpdate: request.canUpdateWorkProgress 
-                  ? () => _updateWorkProgress(request)
-                  : null,
-            ),
+            // Logistics Assignment Details
+            _buildLogisticsAssignmentDetails(request.id),
             
             const SizedBox(height: 16),
             
@@ -479,22 +495,426 @@ class _TailorDashboardState extends ConsumerState<TailorDashboard> {
                     label: const Text('View Details'),
                   ),
                 ),
-                const SizedBox(width: 12),
-                if (request.canStartWork && request.canUpdateWorkProgress)
-                  Expanded(
-                    child: ElevatedButton.icon(
-                      onPressed: () {
-                        _updateWorkProgress(request);
-                      },
-                      icon: const Icon(Icons.update),
-                      label: const Text('Update Work'),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Theme.of(context).primaryColor,
-                        foregroundColor: Colors.white,
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildLogisticsAssignmentDetails(String pickupRequestId) {
+    print('📦 [TAILOR_DASHBOARD] Building logistics assignment details for pickup request: $pickupRequestId');
+    final logisticsAssignmentAsync = ref.watch(logisticsAssignmentForPickupProvider(pickupRequestId));
+    final pickupRequestsAsync = ref.watch(pickupRequestsProvider(widget.user.id));
+    
+    return logisticsAssignmentAsync.when(
+      data: (assignment) {
+        print('📦 [TAILOR_DASHBOARD] Logistics assignment data received for pickup request: $pickupRequestId');
+        print('📦 [TAILOR_DASHBOARD] Assignment: ${assignment?.id} - Status: ${assignment?.statusDisplayName}');
+        print('📦 [TAILOR_DASHBOARD] Warehouse Info - ID: ${assignment?.assignedWarehouseId}, Name: ${assignment?.assignedWarehouseName}, Address: ${assignment?.warehouseAddress}');
+        if (assignment != null) {
+          // Get logistics user details
+          final logisticsUserAsync = ref.watch(userByIdProvider(assignment.logisticsId));
+          
+          return logisticsUserAsync.when(
+            data: (logisticsUser) {
+              return Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.blue.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: Colors.blue.withOpacity(0.3)),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Icon(Icons.local_shipping, size: 20, color: Colors.blue[700]),
+                        const SizedBox(width: 8),
+                        Text(
+                          'Logistics Assignment',
+                          style: TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.blue[700],
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    _buildRequestDetail('Assignment Status', assignment.statusDisplayName, Icons.info),
+                    if (logisticsUser != null) ...[
+                      _buildRequestDetail('Assigned To', logisticsUser.name, Icons.person),
+                      _buildRequestDetail('Logistics Phone', logisticsUser.phone, Icons.phone),
+                      if (logisticsUser.email.isNotEmpty)
+                        _buildRequestDetail('Logistics Email', logisticsUser.email, Icons.email),
+                    ] else
+                      _buildRequestDetail('Assigned To', 'Logistics Personnel (ID: ${assignment.logisticsId})', Icons.person),
+                    if (assignment.assignedWarehouseName != null)
+                      _buildRequestDetail('Warehouse', assignment.assignedWarehouseName!, Icons.warehouse),
+                    if (assignment.warehouseAddress != null)
+                      _buildRequestDetail('Warehouse Address', assignment.warehouseAddress!, Icons.location_on),
+                    if (assignment.warehouseType != null)
+                      _buildRequestDetail('Warehouse Type', assignment.warehouseTypeDisplayName, Icons.category),
+                    if (assignment.assignedWarehouseId != null && assignment.assignedWarehouseName == null) ...[
+                      // Fetch warehouse details if name is not available
+                      Consumer(
+                        builder: (context, ref, child) {
+                          final warehouseAsync = ref.watch(warehouseByIdProvider(assignment.assignedWarehouseId!));
+                          return warehouseAsync.when(
+                            data: (warehouse) {
+                              if (warehouse != null) {
+                                return Column(
+                                  children: [
+                                    _buildRequestDetail('Warehouse', warehouse['name'], Icons.warehouse),
+                                    if (warehouse['address'] != null)
+                                      _buildRequestDetail('Warehouse Address', warehouse['address'], Icons.location_on),
+                                  ],
+                                );
+                              } else {
+                                return _buildRequestDetail('Warehouse', 'Warehouse (ID: ${assignment.assignedWarehouseId})', Icons.warehouse);
+                              }
+                            },
+                            loading: () => _buildRequestDetail('Warehouse', 'Loading warehouse details...', Icons.warehouse),
+                            error: (error, stack) => _buildRequestDetail('Warehouse', 'Warehouse (ID: ${assignment.assignedWarehouseId})', Icons.warehouse),
+                          );
+                        },
                       ),
+                    ],
+                    _buildRequestDetail('Assignment Date', _formatDate(assignment.createdAt), Icons.calendar_today),
+                  ],
+                ),
+              );
+            },
+            loading: () => Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.blue.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: Colors.blue.withOpacity(0.3)),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Icon(Icons.local_shipping, size: 20, color: Colors.blue[700]),
+                      const SizedBox(width: 8),
+                      Text(
+                        'Logistics Assignment',
+                        style: TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.blue[700],
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  _buildRequestDetail('Assignment Status', assignment.statusDisplayName, Icons.info),
+                  Row(
+                    children: [
+                      const SizedBox(
+                        width: 16,
+                        height: 16,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      ),
+                      const SizedBox(width: 8),
+                      Text(
+                        'Loading logistics personnel details...',
+                        style: TextStyle(
+                          fontSize: 14,
+                          color: Colors.grey[600],
+                        ),
+                      ),
+                    ],
+                  ),
+                  if (assignment.assignedWarehouseName != null)
+                    _buildRequestDetail('Warehouse', assignment.assignedWarehouseName!, Icons.warehouse),
+                  if (assignment.warehouseAddress != null)
+                    _buildRequestDetail('Warehouse Address', assignment.warehouseAddress!, Icons.location_on),
+                  _buildRequestDetail('Assignment Date', _formatDate(assignment.createdAt), Icons.calendar_today),
+                ],
+              ),
+            ),
+            error: (error, stack) => Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.blue.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: Colors.blue.withOpacity(0.3)),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Icon(Icons.local_shipping, size: 20, color: Colors.blue[700]),
+                      const SizedBox(width: 8),
+                      Text(
+                        'Logistics Assignment',
+                        style: TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.blue[700],
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  _buildRequestDetail('Assignment Status', assignment.statusDisplayName, Icons.info),
+                  _buildRequestDetail('Assigned To', 'Logistics Personnel (ID: ${assignment.logisticsId})', Icons.person),
+                  if (assignment.assignedWarehouseName != null)
+                    _buildRequestDetail('Warehouse', assignment.assignedWarehouseName!, Icons.warehouse),
+                  if (assignment.warehouseAddress != null)
+                    _buildRequestDetail('Warehouse Address', assignment.warehouseAddress!, Icons.location_on),
+                  if (assignment.warehouseType != null)
+                    _buildRequestDetail('Warehouse Type', assignment.warehouseTypeDisplayName, Icons.category),
+                  if (assignment.assignedWarehouseId != null && assignment.assignedWarehouseName == null)
+                    _buildRequestDetail('Warehouse', 'Warehouse (ID: ${assignment.assignedWarehouseId})', Icons.warehouse),
+                  _buildRequestDetail('Assignment Date', _formatDate(assignment.createdAt), Icons.calendar_today),
+                ],
+              ),
+            ),
+          );
+        } else {
+          // Check if the pickup request is cancelled or has logistics assigned
+          return pickupRequestsAsync.when(
+            data: (requests) {
+              final request = requests.where((r) => r.id == pickupRequestId).firstOrNull;
+              
+              if (request != null && request.status == PickupStatus.cancelled) {
+                return Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: Colors.red.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: Colors.red.withOpacity(0.3)),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Icon(Icons.cancel, size: 20, color: Colors.red[700]),
+                          const SizedBox(width: 8),
+                          Text(
+                            'Assignment Cancelled',
+                            style: TextStyle(
+                              fontSize: 14,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.red[700],
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 8),
+                      if (request.cancellationReason != null)
+                        _buildRequestDetail('Cancellation Reason', request.cancellationReason!, Icons.info),
+                      if (request.cancelledBy != null) ...[
+                        // Get details of who cancelled it
+                        Consumer(
+                          builder: (context, ref, child) {
+                            final cancelledByUserAsync = ref.watch(userByIdProvider(request.cancelledBy!));
+                            return cancelledByUserAsync.when(
+                              data: (cancelledByUser) {
+                                if (cancelledByUser != null) {
+                                  return Column(
+                                    children: [
+                                      _buildRequestDetail('Cancelled By', cancelledByUser.name, Icons.person),
+                                      _buildRequestDetail('Cancelled By Phone', cancelledByUser.phone, Icons.phone),
+                                    ],
+                                  );
+                                } else {
+                                  return _buildRequestDetail('Cancelled By', 'Logistics Personnel (ID: ${request.cancelledBy})', Icons.person);
+                                }
+                              },
+                              loading: () => _buildRequestDetail('Cancelled By', 'Loading...', Icons.person),
+                              error: (error, stack) => _buildRequestDetail('Cancelled By', 'Logistics Personnel (ID: ${request.cancelledBy})', Icons.person),
+                            );
+                          },
+                        ),
+                      ],
+                      if (request.cancelledAt != null)
+                        _buildRequestDetail('Cancelled On', _formatDate(request.cancelledAt!), Icons.calendar_today),
+                    ],
+                  ),
+                );
+              } else {
+                // Check if pickup request has logistics_id but no assignment found yet
+                if (request != null && request.logisticsId != null) {
+                  return Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: Colors.blue.withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: Colors.blue.withOpacity(0.3)),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            Icon(Icons.local_shipping, size: 20, color: Colors.blue[700]),
+                            const SizedBox(width: 8),
+                            Text(
+                              'Logistics Assignment Processing',
+                              style: TextStyle(
+                                fontSize: 14,
+                                fontWeight: FontWeight.bold,
+                                color: Colors.blue[700],
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 8),
+                        Text(
+                          'Logistics has been assigned (ID: ${request.logisticsId}) and assignment details are being processed...',
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: Colors.blue[600],
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        Row(
+                          children: [
+                            const SizedBox(
+                              width: 12,
+                              height: 12,
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            ),
+                            const SizedBox(width: 8),
+                            Text(
+                              'Loading assignment details...',
+                              style: TextStyle(
+                                fontSize: 11,
+                                color: Colors.blue[500],
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  );
+                } else {
+                  return Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: Colors.orange.withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: Colors.orange.withOpacity(0.3)),
+                    ),
+                    child: Row(
+                      children: [
+                        Icon(Icons.schedule, size: 20, color: Colors.orange[700]),
+                        const SizedBox(width: 8),
+                        Text(
+                          'Awaiting Logistics Assignment',
+                          style: TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.orange[700],
+                          ),
+                        ),
+                      ],
+                    ),
+                  );
+                }
+              }
+            },
+            loading: () => Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.grey.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: Colors.grey.withOpacity(0.3)),
+              ),
+              child: Row(
+                children: [
+                  const SizedBox(
+                    width: 16,
+                    height: 16,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  ),
+                  const SizedBox(width: 8),
+                  Text(
+                    'Loading pickup request details...',
+                    style: TextStyle(
+                      fontSize: 14,
+                      color: Colors.grey[600],
                     ),
                   ),
-              ],
+                ],
+              ),
+            ),
+            error: (error, stack) => Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.red.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: Colors.red.withOpacity(0.3)),
+              ),
+              child: Row(
+                children: [
+                  Icon(Icons.error, size: 20, color: Colors.red[700]),
+                  const SizedBox(width: 8),
+                  Text(
+                    'Error loading pickup request details',
+                    style: TextStyle(
+                      fontSize: 14,
+                      color: Colors.red[700],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          );
+        }
+      },
+      loading: () => Container(
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: Colors.grey.withOpacity(0.1),
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(color: Colors.grey.withOpacity(0.3)),
+        ),
+        child: Row(
+          children: [
+            const SizedBox(
+              width: 16,
+              height: 16,
+              child: CircularProgressIndicator(strokeWidth: 2),
+            ),
+            const SizedBox(width: 8),
+            Text(
+              'Loading logistics details...',
+              style: TextStyle(
+                fontSize: 14,
+                color: Colors.grey[600],
+              ),
+            ),
+          ],
+        ),
+      ),
+      error: (error, stack) => Container(
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: Colors.red.withOpacity(0.1),
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(color: Colors.red.withOpacity(0.3)),
+        ),
+        child: Row(
+          children: [
+            Icon(Icons.error, size: 20, color: Colors.red[700]),
+            const SizedBox(width: 8),
+            Text(
+              'Error loading logistics details',
+              style: TextStyle(
+                fontSize: 14,
+                color: Colors.red[700],
+              ),
             ),
           ],
         ),
@@ -591,12 +1011,6 @@ class _TailorDashboardState extends ConsumerState<TailorDashboard> {
           MaterialPageRoute(builder: (context) => const ProfilePage()),
         );
         break;
-      case 'settings':
-        print('🧵 [TAILOR_DASHBOARD] Navigating to SettingsPage');
-        Navigator.of(context).push(
-          MaterialPageRoute(builder: (context) => const TailorSettingsPage()),
-        );
-        break;
       case 'help':
         print('🧵 [TAILOR_DASHBOARD] Navigating to HelpPage');
         Navigator.of(context).push(
@@ -609,21 +1023,7 @@ class _TailorDashboardState extends ConsumerState<TailorDashboard> {
     }
   }
 
-  void _showNotifications() {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Notifications'),
-        content: const Text('You have no new notifications.'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('OK'),
-          ),
-        ],
-      ),
-    );
-  }
+
 
   void _showSchedule() {
     showDialog(
@@ -783,24 +1183,18 @@ class _TailorDashboardState extends ConsumerState<TailorDashboard> {
     switch (progress) {
       case TailorWorkProgress.notStarted:
         return 'Not Started';
-      case TailorWorkProgress.fabricReceived:
-        return 'Fabric Received';
-      case TailorWorkProgress.fabricInspected:
-        return 'Fabric Inspected';
-      case TailorWorkProgress.cuttingStarted:
-        return 'Cutting Started';
-      case TailorWorkProgress.cuttingComplete:
-        return 'Cutting Complete';
-      case TailorWorkProgress.sewingStarted:
-        return 'Sewing Started';
-      case TailorWorkProgress.sewingComplete:
-        return 'Sewing Complete';
+      case TailorWorkProgress.workStarted:
+        return 'Work Started';
+      case TailorWorkProgress.workInProgress:
+        return 'Work In Progress';
+      case TailorWorkProgress.workCompleted:
+        return 'Work Completed';
       case TailorWorkProgress.qualityCheck:
         return 'Quality Check';
-      case TailorWorkProgress.readyForDelivery:
-        return 'Ready for Delivery';
+      case TailorWorkProgress.readyForPickup:
+        return 'Ready for Pickup';
       case TailorWorkProgress.completed:
-        return 'Work Completed';
+        return 'Completed';
     }
   }
 
@@ -813,24 +1207,22 @@ final pickupRequestsProvider = StreamProvider.family<List<PickupRequestModel>, S
   return repository.getPickupRequests(tailorId);
 });
 
-class TailorSettingsPage extends StatelessWidget {
-  const TailorSettingsPage({super.key});
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(title: const Text('Settings')),
-      body: const Center(child: Text('Settings coming soon!')),
-    );
-  }
-}
-
 class TailorHelpPage extends StatelessWidget {
   const TailorHelpPage({super.key});
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(title: const Text('Help & Support')),
-      body: const Center(child: Text('Help & Support coming soon!')),
+      body: const Center(
+        child: Padding(
+          padding: EdgeInsets.all(20.0),
+          child: Text(
+            'Please contact re fab gmail.com',
+            style: TextStyle(fontSize: 18),
+            textAlign: TextAlign.center,
+          ),
+        ),
+      ),
     );
   }
 }

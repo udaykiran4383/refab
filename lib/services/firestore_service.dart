@@ -1,4 +1,5 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import '../features/auth/data/models/user_model.dart';
 import '../models/pickup_request_model.dart';
 import '../models/product_model.dart';
@@ -16,6 +17,33 @@ class FirestoreService {
       print('🔥 [FIRESTORE] User data to save: $userData');
       await _db.collection('users').doc(user.id).set(userData);
       print('🔥 [FIRESTORE] ✅ User created successfully in Firestore with role: ${user.role}');
+      
+      // Verify the save by reading it back
+      try {
+        final savedDoc = await _db.collection('users').doc(user.id).get();
+        if (savedDoc.exists) {
+          final savedData = savedDoc.data()!;
+          print('🔥 [FIRESTORE] ✅ Verification: User saved successfully');
+          print('🔥 [FIRESTORE] 📋 Saved data: $savedData');
+          
+          // Check if role was saved correctly
+          final savedRole = savedData['role'];
+          if (savedRole != null) {
+            print('🔥 [FIRESTORE] 🎭 Role in Firestore: $savedRole');
+            if (savedRole.toString().toLowerCase() == user.role.toString().split('.').last.toLowerCase()) {
+              print('🔥 [FIRESTORE] ✅ Role saved correctly');
+            } else {
+              print('🔥 [FIRESTORE] ⚠️ Role mismatch! Expected: ${user.role}, Saved: $savedRole');
+            }
+          } else {
+            print('🔥 [FIRESTORE] ⚠️ No role found in saved data');
+          }
+        } else {
+          print('🔥 [FIRESTORE] ❌ Verification failed: User document not found after save');
+        }
+      } catch (verifyError) {
+        print('🔥 [FIRESTORE] ⚠️ Verification error: $verifyError');
+      }
     } catch (e) {
       print('🔥 [FIRESTORE] ❌ Error creating user: $e');
       throw e;
@@ -34,6 +62,10 @@ class FirestoreService {
         if (data['id'] == null) {
           data['id'] = userId; // Add ID if missing
         }
+        
+        // Check role field specifically
+        final roleField = data['role'];
+        print('🔥 [FIRESTORE] 🎭 Raw role field from Firestore: "$roleField"');
         
         final user = UserModel.fromJson(data);
         print('🔥 [FIRESTORE] ✅ User loaded: ${user.name} (${user.email}), role: ${user.role}');
@@ -276,6 +308,103 @@ class FirestoreService {
       
     } catch (e) {
       print('🔥 [FIRESTORE] ❌ Error creating product: $e');
+      print('🔥 [FIRESTORE] Error type: ${e.runtimeType}');
+      if (e is FirebaseException) {
+        print('🔥 [FIRESTORE] Firebase error code: ${e.code}');
+        print('🔥 [FIRESTORE] Firebase error message: ${e.message}');
+      }
+      rethrow;
+    }
+  }
+
+  // Warehouses
+  static Future<void> createWarehouse(Map<String, dynamic> warehouse) async {
+    try {
+      print('🔥 [FIRESTORE] Starting createWarehouse...');
+      print('🔥 [FIRESTORE] Warehouse ID: ${warehouse['id']}');
+      print('🔥 [FIRESTORE] Warehouse data: $warehouse');
+      
+      final warehouseData = {
+        ...warehouse,
+        'is_active': true, // Always set as active by default
+        'created_at': FieldValue.serverTimestamp(),
+        'updated_at': FieldValue.serverTimestamp(),
+      }..remove('id');
+      
+      print('🔥 [FIRESTORE] Final data to write: $warehouseData');
+      print('🔥 [FIRESTORE] Writing to collection: warehouses, document: ${warehouse['id']}');
+      
+      await _db.collection('warehouses').doc(warehouse['id']).set(warehouseData);
+      
+      print('🔥 [FIRESTORE] ✅ Warehouse written successfully to Firestore');
+      
+      // Verify the write by reading it back
+      final doc = await _db.collection('warehouses').doc(warehouse['id']).get();
+      if (doc.exists) {
+        print('🔥 [FIRESTORE] ✅ Verification: Document exists in Firestore');
+        print('🔥 [FIRESTORE] Document data: ${doc.data()}');
+      } else {
+        print('🔥 [FIRESTORE] ⚠️ Verification: Document does not exist after write');
+      }
+      
+    } catch (e) {
+      print('🔥 [FIRESTORE] ❌ Error creating warehouse: $e');
+      print('🔥 [FIRESTORE] Error type: ${e.runtimeType}');
+      if (e is FirebaseException) {
+        print('🔥 [FIRESTORE] Firebase error code: ${e.code}');
+        print('🔥 [FIRESTORE] Firebase error message: ${e.message}');
+      }
+      rethrow;
+    }
+  }
+
+  // Warehouse Admin Users
+  static Future<void> createWarehouseAdmin(Map<String, dynamic> adminData) async {
+    try {
+      print('🔥 [FIRESTORE] Starting createWarehouseAdmin...');
+      print('🔥 [FIRESTORE] Admin ID: ${adminData['id']}');
+      print('🔥 [FIRESTORE] Admin data: $adminData');
+      
+      // Create Firebase Auth user first
+      final auth = FirebaseAuth.instance;
+      final credential = await auth.createUserWithEmailAndPassword(
+        email: adminData['email'],
+        password: adminData['password'],
+      );
+      
+      print('🔥 [FIRESTORE] ✅ Firebase Auth user created: ${credential.user?.uid}');
+      
+      // Create user document in Firestore
+      final userData = {
+        'id': credential.user!.uid, // Use Firebase Auth UID
+        'email': adminData['email'],
+        'name': adminData['name'],
+        'phone': adminData['phone'],
+        'role': adminData['role'],
+        'warehouse_id': adminData['warehouse_id'],
+        'is_active': true,
+        'created_at': FieldValue.serverTimestamp(),
+        'updated_at': FieldValue.serverTimestamp(),
+      };
+      
+      print('🔥 [FIRESTORE] Final user data to write: $userData');
+      print('🔥 [FIRESTORE] Writing to collection: users, document: ${credential.user!.uid}');
+      
+      await _db.collection('users').doc(credential.user!.uid).set(userData);
+      
+      print('🔥 [FIRESTORE] ✅ Warehouse admin user written successfully to Firestore');
+      
+      // Verify the write by reading it back
+      final doc = await _db.collection('users').doc(credential.user!.uid).get();
+      if (doc.exists) {
+        print('🔥 [FIRESTORE] ✅ Verification: User document exists in Firestore');
+        print('🔥 [FIRESTORE] User document data: ${doc.data()}');
+      } else {
+        print('🔥 [FIRESTORE] ⚠️ Verification: User document does not exist after write');
+      }
+      
+    } catch (e) {
+      print('🔥 [FIRESTORE] ❌ Error creating warehouse admin: $e');
       print('🔥 [FIRESTORE] Error type: ${e.runtimeType}');
       if (e is FirebaseException) {
         print('🔥 [FIRESTORE] Firebase error code: ${e.code}');

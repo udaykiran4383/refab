@@ -1,353 +1,272 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:firebase_core/firebase_core.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_core/firebase_core.dart';
 import 'package:refab_app/features/admin/data/repositories/admin_repository.dart';
-import 'package:refab_app/features/admin/data/models/analytics_model.dart';
-import 'package:refab_app/features/admin/data/models/system_config_model.dart';
-import 'package:refab_app/features/auth/data/models/user_model.dart';
-import '../test_helper.dart';
+import 'package:refab_app/features/admin/data/models/dashboard_model.dart';
 
 void main() {
   group('AdminRepository Tests', () {
     late AdminRepository repository;
-    late String testAdminId;
+    late String testRequestId;
+    late String testAssignmentId;
 
     setUpAll(() async {
-      print('👨‍💼 [ADMIN_TEST] Setting up Firebase for testing...');
+      print('🔥 [ADMIN_TEST] Setting up Firebase for testing...');
       TestWidgetsFlutterBinding.ensureInitialized();
-      await TestHelper.setupFirebaseForTesting();
-      print('👨‍💼 [ADMIN_TEST] ✅ Firebase initialized');
+      await Firebase.initializeApp();
+      print('🔥 [ADMIN_TEST] ✅ Firebase initialized');
     });
 
     setUp(() {
-      print('👨‍💼 [ADMIN_TEST] Setting up test environment...');
+      print('🔥 [ADMIN_TEST] Setting up test environment...');
       repository = AdminRepository();
-      testAdminId = TestHelper.generateTestId('admin');
-      print('👨‍💼 [ADMIN_TEST] ✅ Test environment ready. Admin ID: $testAdminId');
+      testRequestId = 'test_request_${DateTime.now().millisecondsSinceEpoch}';
+      testAssignmentId = 'test_assignment_${DateTime.now().millisecondsSinceEpoch}';
+      print('🔥 [ADMIN_TEST] ✅ Test environment ready');
+    });
+
+    group('Pickup Requests', () {
+      test('should get all pickup requests', () async {
+        print('🔥 [ADMIN_TEST] Testing get all pickup requests...');
+        
+        if (!Firebase.apps.isNotEmpty) {
+          print('🔥 [ADMIN_TEST] ⚠️ Skipping test - Firebase not available');
+          return;
+        }
+
+        // Create test pickup request
+        final testRequest = {
+          'customerName': 'Test Customer',
+          'fabricType': 'Cotton',
+          'pickupAddress': 'Test Address',
+          'status': 'pending',
+          'createdAt': DateTime.now().toIso8601String(),
+        };
+
+        await FirebaseFirestore.instance
+            .collection('pickup_requests')
+            .doc(testRequestId)
+            .set(testRequest);
+
+        final requests = await repository.getAllPickupRequests();
+        expect(requests, isNotEmpty);
+        expect(requests.any((r) => r['id'] == testRequestId), isTrue);
+      });
+
+      test('should update pickup request status', () async {
+        print('🔥 [ADMIN_TEST] Testing update pickup request status...');
+        
+        if (!Firebase.apps.isNotEmpty) {
+          print('🔥 [ADMIN_TEST] ⚠️ Skipping test - Firebase not available');
+          return;
+        }
+
+        // Create test pickup request
+        final testRequest = {
+          'customerName': 'Test Customer',
+          'fabricType': 'Cotton',
+          'pickupAddress': 'Test Address',
+          'status': 'pending',
+          'createdAt': DateTime.now().toIso8601String(),
+        };
+
+        await FirebaseFirestore.instance
+            .collection('pickup_requests')
+            .doc(testRequestId)
+            .set(testRequest);
+
+        final success = await repository.updatePickupRequestStatus(testRequestId, 'completed');
+        expect(success, isTrue);
+
+        final updatedRequest = await FirebaseFirestore.instance
+            .collection('pickup_requests')
+            .doc(testRequestId)
+            .get();
+
+        expect(updatedRequest.data()?['status'], equals('completed'));
+      });
+
+      test('should search pickup requests', () async {
+        print('🔥 [ADMIN_TEST] Testing search pickup requests...');
+        
+        if (!Firebase.apps.isNotEmpty) {
+          print('🔥 [ADMIN_TEST] ⚠️ Skipping test - Firebase not available');
+          return;
+        }
+
+        // Create test pickup request
+        final testRequest = {
+          'customerName': 'Test Customer',
+          'fabricType': 'Cotton',
+          'pickupAddress': 'Test Address',
+          'status': 'pending',
+          'createdAt': DateTime.now().toIso8601String(),
+        };
+
+        await FirebaseFirestore.instance
+            .collection('pickup_requests')
+            .doc(testRequestId)
+            .set(testRequest);
+
+        final results = await repository.searchPickupRequests('Test Customer');
+        expect(results, isNotEmpty);
+        expect(results.any((r) => r['id'] == testRequestId), isTrue);
+      });
+    });
+
+    group('Assignments', () {
+      test('should get all assignments', () async {
+        print('🔥 [ADMIN_TEST] Testing get all assignments...');
+        
+        if (!Firebase.apps.isNotEmpty) {
+          print('🔥 [ADMIN_TEST] ⚠️ Skipping test - Firebase not available');
+          return;
+        }
+
+        // Create test assignment
+        final testAssignment = {
+          'type': 'logistics',
+          'status': 'pending',
+          'description': 'Test assignment',
+          'createdAt': DateTime.now().toIso8601String(),
+        };
+
+        await FirebaseFirestore.instance
+            .collection('assignments')
+            .doc(testAssignmentId)
+            .set(testAssignment);
+
+        final assignments = await repository.getAllAssignments();
+        expect(assignments, isNotEmpty);
+        expect(assignments.any((a) => a['id'] == testAssignmentId), isTrue);
+      });
+
+      test('should update assignment status', () async {
+        print('🔥 [ADMIN_TEST] Testing update assignment status...');
+        
+        if (!Firebase.apps.isNotEmpty) {
+          print('🔥 [ADMIN_TEST] ⚠️ Skipping test - Firebase not available');
+          return;
+        }
+
+        // Create test assignment
+        final testAssignment = {
+          'type': 'logistics',
+          'status': 'pending',
+          'description': 'Test assignment',
+          'createdAt': DateTime.now().toIso8601String(),
+        };
+
+        await FirebaseFirestore.instance
+            .collection('assignments')
+            .doc(testAssignmentId)
+            .set(testAssignment);
+
+        final success = await repository.updateAssignmentStatus(testAssignmentId, 'completed');
+        expect(success, isTrue);
+
+        final updatedAssignment = await FirebaseFirestore.instance
+            .collection('assignments')
+            .doc(testAssignmentId)
+            .get();
+
+        expect(updatedAssignment.data()?['status'], equals('completed'));
+      });
+
+      test('should search assignments', () async {
+        print('🔥 [ADMIN_TEST] Testing search assignments...');
+        
+        if (!Firebase.apps.isNotEmpty) {
+          print('🔥 [ADMIN_TEST] ⚠️ Skipping test - Firebase not available');
+          return;
+        }
+
+        // Create test assignment
+        final testAssignment = {
+          'type': 'logistics',
+          'status': 'pending',
+          'description': 'Test assignment',
+          'createdAt': DateTime.now().toIso8601String(),
+        };
+
+        await FirebaseFirestore.instance
+            .collection('assignments')
+            .doc(testAssignmentId)
+            .set(testAssignment);
+
+        final results = await repository.searchAssignments('logistics');
+        expect(results, isNotEmpty);
+        expect(results.any((a) => a['id'] == testAssignmentId), isTrue);
+      });
+    });
+
+    group('Dashboard Data', () {
+      test('should get dashboard data', () async {
+        print('🔥 [ADMIN_TEST] Testing get dashboard data...');
+        
+        if (!Firebase.apps.isNotEmpty) {
+          print('🔥 [ADMIN_TEST] ⚠️ Skipping test - Firebase not available');
+          return;
+        }
+
+        // Create test data
+        final testRequest = {
+          'customerName': 'Test Customer',
+          'fabricType': 'Cotton',
+          'pickupAddress': 'Test Address',
+          'status': 'pending',
+          'createdAt': DateTime.now().toIso8601String(),
+        };
+
+        final testAssignment = {
+          'type': 'logistics',
+          'status': 'pending',
+          'description': 'Test assignment',
+          'createdAt': DateTime.now().toIso8601String(),
+        };
+
+        await FirebaseFirestore.instance
+            .collection('pickup_requests')
+            .doc(testRequestId)
+            .set(testRequest);
+
+        await FirebaseFirestore.instance
+            .collection('assignments')
+            .doc(testAssignmentId)
+            .set(testAssignment);
+
+        final dashboardData = await repository.getDashboardData();
+        expect(dashboardData, isA<DashboardModel>());
+        expect(dashboardData.totalPickupRequests, greaterThanOrEqualTo(1));
+        expect(dashboardData.totalAssignments, greaterThanOrEqualTo(1));
+      });
     });
 
     tearDown(() async {
-      print('👨‍💼 [ADMIN_TEST] Cleaning up test data...');
-      await TestHelper.cleanupTestData('users', 'createdBy', testAdminId);
-      print('👨‍💼 [ADMIN_TEST] ✅ Test data cleaned up');
-    });
-
-    group('User Management', () {
-      test('should get all users', () async {
-        print('👨‍💼 [ADMIN_TEST] Testing get all users...');
-        
-        if (!TestHelper.isFirebaseAvailable) {
-          print('👨‍💼 [ADMIN_TEST] ⚠️ Skipping test - Firebase not available');
-          return;
+      print('🔥 [ADMIN_TEST] Cleaning up test data...');
+      
+      if (Firebase.apps.isNotEmpty) {
+        // Clean up test data
+        try {
+          await FirebaseFirestore.instance
+              .collection('pickup_requests')
+              .doc(testRequestId)
+              .delete();
+        } catch (e) {
+          print('🔥 [ADMIN_TEST] ⚠️ Error cleaning up pickup request: $e');
         }
 
-        // Create test user
-        final testUser = UserModel(
-          id: TestHelper.generateTestId('user'),
-          name: 'Test User',
-          email: 'test@example.com',
-          role: UserRole.customer,
-          isActive: true,
-          createdAt: DateTime.now(),
-          phone: '+1234567890',
-          address: 'Test Address',
-        );
-
-        await FirebaseFirestore.instance
-            .collection('users')
-            .doc(testUser.id)
-            .set(testUser.toJson());
-
-        await TestHelper.waitForFirebaseOperations();
-
-        final users = await repository.getAllUsers().first;
-        expect(users, isNotEmpty);
-        expect(users.any((u) => u.id == testUser.id), isTrue);
-        
-        TestHelper.logTestSuccess('Get All Users');
-      });
-
-      test('should get users by role', () async {
-        print('👨‍💼 [ADMIN_TEST] Testing get users by role...');
-        
-        if (!TestHelper.isFirebaseAvailable) {
-          print('👨‍💼 [ADMIN_TEST] ⚠️ Skipping test - Firebase not available');
-          return;
+        try {
+          await FirebaseFirestore.instance
+              .collection('assignments')
+              .doc(testAssignmentId)
+              .delete();
+        } catch (e) {
+          print('🔥 [ADMIN_TEST] ⚠️ Error cleaning up assignment: $e');
         }
-
-        // Create test customer
-        final testCustomer = UserModel(
-          id: TestHelper.generateTestId('customer'),
-          name: 'Test Customer',
-          email: 'customer@test.com',
-          role: UserRole.customer,
-          isActive: true,
-          createdAt: DateTime.now(),
-          phone: '+1234567890',
-          address: 'Test Address',
-        );
-
-        await FirebaseFirestore.instance
-            .collection('users')
-            .doc(testCustomer.id)
-            .set(testCustomer.toJson());
-
-        await TestHelper.waitForFirebaseOperations();
-
-        final customers = await repository.getUsersByRole('customer').first;
-        expect(customers.any((u) => u.id == testCustomer.id), isTrue);
-        
-        TestHelper.logTestSuccess('Get Users By Role');
-      });
-
-      test('should update user', () async {
-        print('👨‍💼 [ADMIN_TEST] Testing user update...');
-        
-        if (!TestHelper.isFirebaseAvailable) {
-          print('👨‍💼 [ADMIN_TEST] ⚠️ Skipping test - Firebase not available');
-          return;
-        }
-
-        // Create test user
-        final testUser = UserModel(
-          id: TestHelper.generateTestId('user'),
-          name: 'Original Name',
-          email: 'update@test.com',
-          role: UserRole.customer,
-          isActive: true,
-          createdAt: DateTime.now(),
-          phone: '+1234567890',
-          address: 'Test Address',
-        );
-
-        await FirebaseFirestore.instance
-            .collection('users')
-            .doc(testUser.id)
-            .set(testUser.toJson());
-
-        await TestHelper.waitForFirebaseOperations();
-
-        // Update user
-        await repository.updateUser(testUser.id, {'name': 'Updated Name'});
-        
-        await TestHelper.waitForFirebaseOperations();
-
-        final updatedUsers = await repository.getAllUsers().first;
-        final updatedUser = updatedUsers.firstWhere((u) => u.id == testUser.id);
-        expect(updatedUser.name, equals('Updated Name'));
-        
-        TestHelper.logTestSuccess('Update User');
-      });
-
-      test('should deactivate user', () async {
-        print('👨‍💼 [ADMIN_TEST] Testing user deactivation...');
-        
-        if (!TestHelper.isFirebaseAvailable) {
-          print('👨‍💼 [ADMIN_TEST] ⚠️ Skipping test - Firebase not available');
-          return;
-        }
-
-        // Create test user
-        final testUser = UserModel(
-          id: TestHelper.generateTestId('user'),
-          name: 'Active User',
-          email: 'active@test.com',
-          role: UserRole.customer,
-          isActive: true,
-          createdAt: DateTime.now(),
-          phone: '+1234567890',
-          address: 'Test Address',
-        );
-
-        await FirebaseFirestore.instance
-            .collection('users')
-            .doc(testUser.id)
-            .set(testUser.toJson());
-
-        await TestHelper.waitForFirebaseOperations();
-
-        // Deactivate user
-        await repository.deactivateUser(testUser.id);
-        
-        await TestHelper.waitForFirebaseOperations();
-
-        final deactivatedUsers = await repository.getAllUsers().first;
-        final deactivatedUser = deactivatedUsers.firstWhere((u) => u.id == testUser.id);
-        expect(deactivatedUser.isActive, isFalse);
-        
-        TestHelper.logTestSuccess('Deactivate User');
-      });
-
-      test('should delete user', () async {
-        print('👨‍💼 [ADMIN_TEST] Testing user deletion...');
-        
-        if (!TestHelper.isFirebaseAvailable) {
-          print('👨‍💼 [ADMIN_TEST] ⚠️ Skipping test - Firebase not available');
-          return;
-        }
-
-        // Create a test user first
-        final testUser = UserModel(
-          id: TestHelper.generateTestId('user'),
-          name: 'Test User for Deletion',
-          email: 'testdelete@example.com',
-          role: UserRole.customer,
-          isActive: true,
-          createdAt: DateTime.now(),
-          phone: '+1234567890',
-          address: 'Test Address',
-        );
-
-        await FirebaseFirestore.instance
-            .collection('users')
-            .doc(testUser.id)
-            .set(testUser.toJson());
-        
-        await TestHelper.waitForFirebaseOperations();
-
-        // Delete user
-        await repository.deleteUser(testUser.id);
-        
-        await TestHelper.waitForFirebaseOperations();
-
-        // Verify deletion
-        final deletedUser = await FirebaseFirestore.instance
-            .collection('users')
-            .doc(testUser.id)
-            .get();
-        
-        expect(deletedUser.exists, isFalse);
-        TestHelper.logTestSuccess('Delete User');
-      });
-    });
-
-    group('Analytics', () {
-      test('should get system analytics', () async {
-        print('👨‍💼 [ADMIN_TEST] Testing system analytics...');
-        
-        if (!TestHelper.isFirebaseAvailable) {
-          print('👨‍💼 [ADMIN_TEST] ⚠️ Skipping test - Firebase not available');
-          return;
-        }
-
-        // Create test data for analytics
-        await _createTestDataForAnalytics(testAdminId);
-        
-        await TestHelper.waitForFirebaseOperations();
-
-        final analytics = await repository.getSystemAnalytics().first;
-        expect(analytics, isA<AnalyticsModel>());
-        expect(analytics.totalUsers, greaterThan(0));
-        
-        TestHelper.logTestSuccess('System Analytics');
-      });
-
-      test('should get user analytics', () async {
-        print('👨‍💼 [ADMIN_TEST] Testing user analytics...');
-        
-        if (!TestHelper.isFirebaseAvailable) {
-          print('👨‍💼 [ADMIN_TEST] ⚠️ Skipping test - Firebase not available');
-          return;
-        }
-
-        // Create test user
-        final testUser = UserModel(
-          id: TestHelper.generateTestId('user'),
-          name: 'Analytics User',
-          email: 'analytics@test.com',
-          role: UserRole.customer,
-          isActive: true,
-          createdAt: DateTime.now(),
-          phone: '+1234567890',
-          address: 'Test Address',
-        );
-
-        await FirebaseFirestore.instance
-            .collection('users')
-            .doc(testUser.id)
-            .set(testUser.toJson());
-
-        await TestHelper.waitForFirebaseOperations();
-
-        final analytics = await repository.getUserAnalytics(testUser.id).first;
-        expect(analytics, isA<AnalyticsModel>());
-        
-        TestHelper.logTestSuccess('User Analytics');
-      });
-    });
-
-    group('System Configuration', () {
-      test('should get system configuration', () async {
-        print('👨‍💼 [ADMIN_TEST] Testing system configuration...');
-        
-        if (!TestHelper.isFirebaseAvailable) {
-          print('👨‍💼 [ADMIN_TEST] ⚠️ Skipping test - Firebase not available');
-          return;
-        }
-
-        final config = await repository.getSystemConfiguration().first;
-        expect(config, isA<SystemConfigModel>());
-        
-        TestHelper.logTestSuccess('System Configuration');
-      });
-
-      test('should update system configuration', () async {
-        print('👨‍💼 [ADMIN_TEST] Testing system configuration update...');
-        
-        if (!TestHelper.isFirebaseAvailable) {
-          print('👨‍💼 [ADMIN_TEST] ⚠️ Skipping test - Firebase not available');
-          return;
-        }
-
-        final newConfig = SystemConfigModel(
-          maxPickupRequests: 100,
-          pickupTimeWindow: Duration(hours: 2),
-          notificationEnabled: true,
-          maintenanceMode: false,
-        );
-
-        await repository.updateSystemConfiguration(newConfig);
-        
-        await TestHelper.waitForFirebaseOperations();
-
-        final updatedConfig = await repository.getSystemConfiguration().first;
-        expect(updatedConfig.maxPickupRequests, equals(100));
-        
-        TestHelper.logTestSuccess('Update System Configuration');
-      });
+      }
+      
+      print('🔥 [ADMIN_TEST] ✅ Test cleanup completed');
     });
   });
-}
-
-Future<void> _createTestDataForAnalytics(String testAdminId) async {
-  if (!TestHelper.isFirebaseAvailable) return;
-
-  final firestore = FirebaseFirestore.instance;
-  final batch = firestore.batch();
-
-  // Create test users
-  for (int i = 0; i < 5; i++) {
-    final user = {
-      'name': 'Test User $i',
-      'email': 'test$i@example.com',
-      'role': i % 3 == 0 ? UserRole.customer : i % 3 == 1 ? UserRole.tailor : UserRole.volunteer,
-      'isActive': true,
-      'createdAt': DateTime.now().toIso8601String(),
-      'createdBy': testAdminId,
-    };
-    batch.set(firestore.collection('users').doc('test_user_$i'), user);
-  }
-
-  // Create test pickup requests
-  for (int i = 0; i < 10; i++) {
-    final pickup = {
-      'customerId': 'test_user_${i % 5}',
-      'status': i % 4 == 0 ? 'pending' : i % 4 == 1 ? 'assigned' : i % 4 == 2 ? 'completed' : 'cancelled',
-      'createdAt': DateTime.now().toIso8601String(),
-      'createdBy': testAdminId,
-    };
-    batch.set(firestore.collection('pickupRequests').doc('test_pickup_$i'), pickup);
-  }
-
-  await batch.commit();
 } 

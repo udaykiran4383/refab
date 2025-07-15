@@ -2,8 +2,8 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import '../models/route_model.dart';
 import '../models/pickup_assignment_model.dart';
 import '../models/logistics_assignment_model.dart';
-import '../models/logistics_analytics_model.dart';
-import '../../../tailor/data/models/pickup_request_model.dart';
+
+
 
 class LogisticsRepository {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
@@ -122,23 +122,222 @@ class LogisticsRepository {
 
       await _firestore.collection('logisticsAssignments').doc(assignmentId).update(updates);
       print('🚚 [LOGISTICS_REPO] ✅ Assignment status updated successfully');
+
+      // If status is cancelled, also update the pickup request to remove logistics assignment
+      if (status == LogisticsAssignmentStatus.cancelled) {
+        await _handleCancelledAssignment(assignmentId, 'Assignment cancelled by logistics', 'logistics_user_id');
+      }
     } catch (e) {
       print('🚚 [LOGISTICS_REPO] ❌ Error updating assignment status: $e');
       throw Exception('Failed to update assignment status: $e');
     }
   }
 
+  // Dedicated method for cancelling logistics assignments
+  Future<void> cancelLogisticsAssignment(String assignmentId, String reason, String cancelledByUserId) async {
+    try {
+      print('🚚 [LOGISTICS_REPO] Cancelling logistics assignment: $assignmentId');
+      print('🚚 [LOGISTICS_REPO] Reason: $reason');
+      print('🚚 [LOGISTICS_REPO] Cancelled by: $cancelledByUserId');
+      
+      final updates = {
+        'status': 'cancelled',
+        'updated_at': DateTime.now().toIso8601String(),
+        'cancelled_at': DateTime.now().toIso8601String(),
+        'cancellation_reason': reason,
+        'cancelled_by': cancelledByUserId,
+      };
+
+      await _firestore.collection('logisticsAssignments').doc(assignmentId).update(updates);
+      print('🚚 [LOGISTICS_REPO] ✅ Assignment cancelled successfully');
+
+      // Handle the cancelled assignment - reset pickup request with cancellation details
+      await _handleCancelledAssignment(assignmentId, reason, cancelledByUserId);
+    } catch (e) {
+      print('🚚 [LOGISTICS_REPO] ❌ Error cancelling assignment: $e');
+      throw Exception('Failed to cancel logistics assignment: $e');
+    }
+  }
+
+  Future<void> _handleCancelledAssignment(String assignmentId, String reason, String cancelledByUserId) async {
+    try {
+      print('🚚 [LOGISTICS_REPO] Handling cancelled assignment: $assignmentId');
+      
+      // Get the assignment to find the pickup request ID
+      final assignmentDoc = await _firestore.collection('logisticsAssignments').doc(assignmentId).get();
+      if (!assignmentDoc.exists) {
+        print('🚚 [LOGISTICS_REPO] ❌ Assignment not found: $assignmentId');
+        return;
+      }
+
+      final assignmentData = assignmentDoc.data() as Map<String, dynamic>;
+      final pickupRequestId = assignmentData['pickup_request_id'];
+      final tailorId = assignmentData['tailor_id'];
+      final logisticsId = assignmentData['logistics_id'];
+      
+      if (pickupRequestId != null) {
+        // Get the current pickup request to understand its state
+        final pickupDoc = await _firestore.collection('pickupRequests').doc(pickupRequestId).get();
+        if (!pickupDoc.exists) {
+          print('🚚 [LOGISTICS_REPO] ❌ Pickup request not found: $pickupRequestId');
+          return;
+        }
+
+        final pickupData = pickupDoc.data() as Map<String, dynamic>;
+        final currentStatus = pickupData['status'];
+        final workProgress = pickupData['work_progress'];
+        
+        // Determine the appropriate status based on current state
+        String newStatus = 'cancelled'; // Changed from 'pending' to 'cancelled'
+        String cancellationReason = 'Logistics assignment cancelled: $reason';
+        
+        // If fabric was already picked up, we need to handle this differently
+        if (currentStatus == 'picked_up' || currentStatus == 'in_transit' || currentStatus == 'delivered') {
+          newStatus = 'cancelled'; // Keep as cancelled but note fabric status
+          cancellationReason = 'Logistics delivery assignment cancelled - fabric remains with tailor. Reason: $reason';
+        }
+        
+        // Update pickup request to remove logistics assignment and set cancellation status
+        final updates = {
+          'logistics_id': null,
+          'status': newStatus,
+          'updated_at': DateTime.now().toIso8601String(),
+          'cancellation_reason': cancellationReason,
+          'cancelled_by': cancelledByUserId,
+          'cancelled_at': DateTime.now().toIso8601String(),
+        };
+
+        // Reset work progress if it was in progress (fabric was picked up)
+        if (workProgress != null && workProgress != 'notStarted') {
+          updates['work_progress'] = 'notStarted';
+          updates['progress'] = 'Work progress reset due to logistics cancellation';
+        }
+
+        await _firestore.collection('pickupRequests').doc(pickupRequestId).update(updates);
+        print('🚚 [LOGISTICS_REPO] ✅ Updated pickup request $pickupRequestId to cancelled status');
+        
+        // Create notification for tailor with cancellation details
+        if (tailorId != null) {
+          await _createTailorNotification(
+            tailorId, 
+            pickupRequestId, 
+            'Logistics Assignment Cancelled',
+            'Your logistics assignment has been cancelled by logistics personnel. Reason: $reason. The pickup request is now available for reassignment.',
+            'logistics_cancelled'
+          );
+        }
+        
+        // Create audit log entry
+        await _createAuditLog(
+          'logistics_assignment_cancelled',
+          {
+            'assignment_id': assignmentId,
+            'pickup_request_id': pickupRequestId,
+            'tailor_id': tailorId,
+            'logistics_id': logisticsId,
+            'previous_status': currentStatus,
+            'new_status': newStatus,
+            'cancellation_reason': reason,
+            'cancelled_by': cancelledByUserId,
+          }
+        );
+      }
+    } catch (e) {
+      print('🚚 [LOGISTICS_REPO] ❌ Error handling cancelled assignment: $e');
+      // Don't throw here to avoid breaking the main status update
+    }
+  }
+
+  // Helper method to create tailor notifications
+  Future<void> _createTailorNotification(
+    String tailorId, 
+    String pickupRequestId, 
+    String title, 
+    String message, 
+    String type
+  ) async {
+    try {
+      await _firestore.collection('notifications').add({
+        'tailor_id': tailorId,
+        'pickup_request_id': pickupRequestId,
+        'title': title,
+        'message': message,
+        'type': type,
+        'is_read': false,
+        'created_at': DateTime.now().toIso8601String(),
+        'priority': 'high',
+      });
+      print('🚚 [LOGISTICS_REPO] ✅ Created notification for tailor: $tailorId');
+    } catch (e) {
+      print('🚚 [LOGISTICS_REPO] ❌ Error creating tailor notification: $e');
+    }
+  }
+
+  // Helper method to create audit logs
+  Future<void> _createAuditLog(String action, Map<String, dynamic> data) async {
+    try {
+      await _firestore.collection('audit_logs').add({
+        'action': action,
+        'data': data,
+        'timestamp': DateTime.now().toIso8601String(),
+        'user_type': 'logistics',
+      });
+      print('🚚 [LOGISTICS_REPO] ✅ Created audit log for action: $action');
+    } catch (e) {
+      print('🚚 [LOGISTICS_REPO] ❌ Error creating audit log: $e');
+    }
+  }
+
   Future<void> assignWarehouse(String assignmentId, String warehouseId, String warehouseName, WarehouseType warehouseType, String warehouseAddress) async {
     try {
       print('🚚 [LOGISTICS_REPO] Assigning warehouse: $warehouseId to assignment: $assignmentId');
+      
+      // Get the assignment to find the pickup request ID
+      final assignmentDoc = await _firestore.collection('logisticsAssignments').doc(assignmentId).get();
+      if (!assignmentDoc.exists) {
+        throw Exception('Assignment not found: $assignmentId');
+      }
+      
+      final assignmentData = assignmentDoc.data() as Map<String, dynamic>;
+      final pickupRequestId = assignmentData['pickup_request_id'];
+      final currentLogisticsId = assignmentData['logistics_id'];
+      
+      // Check if this logistics personnel has already assigned themselves
+      if (assignmentData['assigned_warehouse_id'] != null) {
+        throw Exception('Assignment already has a warehouse assigned. Cannot assign multiple warehouses.');
+      }
+      
+      print('🚚 [LOGISTICS_REPO] Updating logistics assignment document with warehouse assignment');
+      print('🚚 [LOGISTICS_REPO] Assignment ID: $assignmentId');
+      print('🚚 [LOGISTICS_REPO] Warehouse ID: $warehouseId');
+      print('🚚 [LOGISTICS_REPO] Warehouse Name: $warehouseName');
+      
+      // Update the logistics assignment
       await _firestore.collection('logisticsAssignments').doc(assignmentId).update({
         'assigned_warehouse_id': warehouseId,
         'assigned_warehouse_name': warehouseName,
         'warehouse_type': warehouseType.toString().split('.').last,
         'warehouse_address': warehouseAddress,
+        'status': 'assigned', // <-- Set status to assigned
+        'scheduled_time': DateTime.now().toIso8601String(),
         'updated_at': DateTime.now().toIso8601String(),
+        'assigned_by_logistics_id': currentLogisticsId, // Track who assigned it
+        'assigned_at': DateTime.now().toIso8601String(),
       });
-      print('🚚 [LOGISTICS_REPO] ✅ Warehouse assigned successfully');
+      
+      print('🚚 [LOGISTICS_REPO] ✅ Logistics assignment document updated successfully');
+      
+      // Update the pickup request status to show logistics assignment
+      if (pickupRequestId != null) {
+        await _firestore.collection('pickupRequests').doc(pickupRequestId).update({
+          'status': 'scheduled', // Update pickup request status
+          'logistics_id': assignmentData['logistics_id'], // Ensure logistics ID is set
+          'updated_at': DateTime.now().toIso8601String(),
+        });
+        print('🚚 [LOGISTICS_REPO] ✅ Pickup request status updated to scheduled');
+      }
+      
+      print('🚚 [LOGISTICS_REPO] ✅ Warehouse assigned and status updated to assigned');
     } catch (e) {
       print('🚚 [LOGISTICS_REPO] ❌ Error assigning warehouse: $e');
       throw Exception('Failed to assign warehouse: $e');
@@ -161,16 +360,62 @@ class LogisticsRepository {
 
   Future<List<Map<String, dynamic>>> getAvailableWarehouses() async {
     try {
+      print('🚚 [LOGISTICS_REPO] Starting getAvailableWarehouses...');
+      
+      // First, let's try to get ALL warehouses to see what's in the collection
+      print('🚚 [LOGISTICS_REPO] Checking all warehouses first...');
+      final allSnapshot = await _firestore.collection('warehouses').get();
+      print('🚚 [LOGISTICS_REPO] Total warehouses in collection: ${allSnapshot.docs.length}');
+      
+      for (final doc in allSnapshot.docs) {
+        final data = doc.data();
+        print('🚚 [LOGISTICS_REPO] Warehouse ${doc.id}: ${data['name']} - is_active: ${data['is_active']}');
+      }
+      
+      // Now try the filtered query
       final snapshot = await _firestore
           .collection('warehouses')
           .where('is_active', isEqualTo: true)
           .get();
       
-      return snapshot.docs.map((doc) => {
-        ...(doc.data() as Map<String, dynamic>),
-        'id': doc.id,
+      print('🚚 [LOGISTICS_REPO] Filtered query completed. Found ${snapshot.docs.length} active warehouses');
+      
+      final warehouses = snapshot.docs.map((doc) {
+        final data = {
+          ...(doc.data() as Map<String, dynamic>),
+          'id': doc.id,
+        };
+        print('🚚 [LOGISTICS_REPO] Active Warehouse: ${data['name']} (ID: ${data['id']}, Active: ${data['is_active']})');
+        return data;
       }).toList();
+      
+      print('🚚 [LOGISTICS_REPO] ✅ Returning ${warehouses.length} warehouses');
+      
+      // If no warehouses found with filter, try without filter as fallback
+      if (warehouses.isEmpty) {
+        print('🚚 [LOGISTICS_REPO] ⚠️ No active warehouses found, trying without filter...');
+        final fallbackSnapshot = await _firestore.collection('warehouses').get();
+        final fallbackWarehouses = fallbackSnapshot.docs.map((doc) {
+          final data = {
+            ...(doc.data() as Map<String, dynamic>),
+            'id': doc.id,
+          };
+          print('🚚 [LOGISTICS_REPO] Fallback Warehouse: ${data['name']} (ID: ${data['id']}, Active: ${data['is_active']})');
+          return data;
+        }).toList();
+        
+        print('🚚 [LOGISTICS_REPO] ✅ Fallback returning ${fallbackWarehouses.length} warehouses');
+        return fallbackWarehouses;
+      }
+      
+      return warehouses;
     } catch (e) {
+      print('🚚 [LOGISTICS_REPO] ❌ Error getting available warehouses: $e');
+      print('🚚 [LOGISTICS_REPO] Error type: ${e.runtimeType}');
+      if (e is FirebaseException) {
+        print('🚚 [LOGISTICS_REPO] Firebase error code: ${e.code}');
+        print('🚚 [LOGISTICS_REPO] Firebase error message: ${e.message}');
+      }
       throw Exception('Failed to get available warehouses: $e');
     }
   }
@@ -456,87 +701,7 @@ class LogisticsRepository {
         });
   }
 
-  // Analytics
-  Future<Map<String, dynamic>> getLogisticsAnalytics(String logisticsId) async {
-    try {
-      final routes = await _firestore
-          .collection('routes')
-          .where('logisticsId', isEqualTo: logisticsId)
-          .get();
-      
-      final logisticsAssignments = await _firestore
-          .collection('logisticsAssignments')
-          .where('logistics_id', isEqualTo: logisticsId)
-          .get();
 
-      final totalRoutes = routes.docs.length;
-      final completedRoutes = routes.docs
-          .where((doc) => doc.data()['status'] == 'completed')
-          .length;
-      
-      // Separate pickup and delivery assignments
-      final pickupAssignments = logisticsAssignments.docs
-          .where((doc) => doc.data()['type'] == 'pickup')
-          .toList();
-      final deliveryAssignments = logisticsAssignments.docs
-          .where((doc) => doc.data()['type'] == 'delivery')
-          .toList();
-      
-      final totalPickups = pickupAssignments.length;
-      final completedPickups = pickupAssignments
-          .where((doc) => doc.data()['status'] == 'completed')
-          .length;
-      final totalDeliveries = deliveryAssignments.length;
-      final completedDeliveries = deliveryAssignments
-          .where((doc) => doc.data()['status'] == 'completed')
-          .length;
-      
-      final totalDistance = routes.docs
-          .where((doc) => doc.data()['status'] == 'completed')
-          .fold<double>(0, (sum, doc) => sum + (doc.data()['totalDistance'] ?? 0));
-
-      // Weekly performance
-      final now = DateTime.now();
-      final weekStart = now.subtract(Duration(days: now.weekday - 1));
-      final weekEnd = weekStart.add(const Duration(days: 6));
-
-      final thisWeekPickups = pickupAssignments
-          .where((doc) {
-            final createdAt = DateTime.parse(doc.data()['created_at']);
-            return createdAt.isAfter(weekStart) && createdAt.isBefore(weekEnd);
-          })
-          .length;
-
-      final lastWeekPickups = pickupAssignments
-          .where((doc) {
-            final createdAt = DateTime.parse(doc.data()['created_at']);
-            final lastWeekStart = weekStart.subtract(const Duration(days: 7));
-            final lastWeekEnd = weekStart.subtract(const Duration(days: 1));
-            return createdAt.isAfter(lastWeekStart) && createdAt.isBefore(lastWeekEnd);
-          })
-          .length;
-
-      return {
-        'totalRoutes': totalRoutes,
-        'completedRoutes': completedRoutes,
-        'totalPickups': totalPickups,
-        'completedPickups': completedPickups,
-        'totalDeliveries': totalDeliveries,
-        'completedDeliveries': completedDeliveries,
-        'totalDistance': totalDistance,
-        'thisWeekPickups': thisWeekPickups,
-        'lastWeekPickups': lastWeekPickups,
-        'routeCompletionRate': totalRoutes > 0 ? (completedRoutes / totalRoutes) * 100 : 0,
-        'pickupCompletionRate': totalPickups > 0 ? (completedPickups / totalPickups) * 100 : 0,
-        'deliveryCompletionRate': totalDeliveries > 0 ? (completedDeliveries / totalDeliveries) * 100 : 0,
-        'weeklyGrowthRate': lastWeekPickups > 0 
-            ? ((thisWeekPickups - lastWeekPickups) / lastWeekPickups) * 100 
-            : 0,
-      };
-    } catch (e) {
-      throw Exception('Failed to get logistics analytics: $e');
-    }
-  }
 
   // Route Optimization
   Future<List<Map<String, dynamic>>> optimizeRoute(List<String> pickupIds) async {
@@ -691,6 +856,19 @@ class LogisticsRepository {
     try {
       print('🚚 [LOGISTICS_REPO] Creating logistics assignment from pickup request: $pickupRequestId');
       
+      // Check if this pickup request already has a logistics assignment
+      final existingAssignment = await _firestore
+          .collection('logisticsAssignments')
+          .where('pickup_request_id', isEqualTo: pickupRequestId)
+          .where('type', isEqualTo: 'pickup')
+          .get();
+      
+      if (existingAssignment.docs.isNotEmpty) {
+        final existingDoc = existingAssignment.docs.first;
+        final existingLogisticsId = existingDoc.data()['logistics_id'];
+        throw Exception('Pickup request $pickupRequestId is already assigned to logistics $existingLogisticsId. Only one logistics partner can be assigned per pickup request.');
+      }
+      
       // Get the pickup request details
       final pickupDoc = await _firestore.collection('pickupRequests').doc(pickupRequestId).get();
       if (!pickupDoc.exists) {
@@ -699,6 +877,11 @@ class LogisticsRepository {
       
       final pickupData = pickupDoc.data() as Map<String, dynamic>;
       print('🚚 [LOGISTICS_REPO] Found pickup request: ${pickupData['customer_name']}');
+      
+      // Check if pickup request is already assigned to another logistics
+      if (pickupData['logistics_id'] != null && pickupData['logistics_id'] != logisticsId) {
+        throw Exception('Pickup request $pickupRequestId is already assigned to logistics ${pickupData['logistics_id']}. Only one logistics partner can be assigned per pickup request.');
+      }
       
       // Create a pickup logistics assignment (tailor to warehouse)
       final pickupAssignment = LogisticsAssignmentModel(
@@ -749,17 +932,71 @@ class LogisticsRepository {
         .snapshots()
         .map((snapshot) {
           print('🚚 [LOGISTICS_REPO] Found ${snapshot.docs.length} available pickup requests');
-          return snapshot.docs.map((doc) => {
-            ...(doc.data() as Map<String, dynamic>),
-            'id': doc.id,
-          }).toList();
+          final validRequests = <Map<String, dynamic>>[];
+          
+          for (final doc in snapshot.docs) {
+            try {
+              final data = doc.data() as Map<String, dynamic>;
+              // Validate that the document has required fields
+              if (data.containsKey('tailor_id') && 
+                  data.containsKey('customer_name') && 
+                  data.containsKey('pickup_address')) {
+                validRequests.add({
+                  ...data,
+                  'id': doc.id,
+                });
+              } else {
+                print('🚚 [LOGISTICS_REPO] ⚠️ Skipping invalid pickup request ${doc.id}: missing required fields');
+              }
+            } catch (e) {
+              print('🚚 [LOGISTICS_REPO] ⚠️ Error processing pickup request ${doc.id}: $e');
+            }
+          }
+          
+          print('🚚 [LOGISTICS_REPO] Returning ${validRequests.length} valid pickup requests');
+          return validRequests;
         });
   }
 
-  // Method to assign logistics to a pickup request
+  // Method to assign logistics to a pickup request with single assignment validation
   Future<void> assignLogisticsToPickupRequest(String pickupRequestId, String logisticsId) async {
     try {
       print('🚚 [LOGISTICS_REPO] Assigning logistics $logisticsId to pickup request $pickupRequestId');
+      
+      // First, validate that the pickup request exists and is in the correct state
+      final pickupDoc = await _firestore.collection('pickupRequests').doc(pickupRequestId).get();
+      if (!pickupDoc.exists) {
+        print('🚚 [LOGISTICS_REPO] ❌ Pickup request not found: $pickupRequestId');
+        throw Exception('Pickup request not found: $pickupRequestId');
+      }
+      
+      final pickupData = pickupDoc.data() as Map<String, dynamic>;
+      
+      // Check if pickup request is in pending status
+      if (pickupData['status'] != 'pending') {
+        print('🚚 [LOGISTICS_REPO] ❌ Pickup request $pickupRequestId is not in pending status: ${pickupData['status']}');
+        throw Exception('Pickup request $pickupRequestId is not available for assignment (status: ${pickupData['status']})');
+      }
+      
+      // Check if pickup request already has a logistics assignment
+      if (pickupData['logistics_id'] != null && pickupData['logistics_id'] != logisticsId) {
+        print('🚚 [LOGISTICS_REPO] ❌ Pickup request $pickupRequestId is already assigned to logistics ${pickupData['logistics_id']}');
+        throw Exception('Pickup request $pickupRequestId is already assigned to logistics ${pickupData['logistics_id']}. Only one logistics partner can be assigned per pickup request.');
+      }
+      
+      // Check if this pickup request already has a logistics assignment in the assignments collection
+      final existingAssignment = await _firestore
+          .collection('logisticsAssignments')
+          .where('pickup_request_id', isEqualTo: pickupRequestId)
+          .where('type', isEqualTo: 'pickup')
+          .get();
+      
+      if (existingAssignment.docs.isNotEmpty) {
+        final existingDoc = existingAssignment.docs.first;
+        final existingLogisticsId = existingDoc.data()['logistics_id'];
+        print('🚚 [LOGISTICS_REPO] ❌ Pickup request $pickupRequestId already has assignment to logistics $existingLogisticsId');
+        throw Exception('Pickup request $pickupRequestId is already assigned to logistics $existingLogisticsId. Only one logistics partner can be assigned per pickup request.');
+      }
       
       // Create the logistics assignment
       await createLogisticsAssignmentFromPickupRequest(pickupRequestId, logisticsId);
@@ -768,6 +1005,118 @@ class LogisticsRepository {
     } catch (e) {
       print('🚚 [LOGISTICS_REPO] ❌ Error assigning logistics to pickup request: $e');
       throw Exception('Failed to assign logistics to pickup request: $e');
+    }
+  }
+
+  // Method to check if a pickup request is already assigned
+  Future<bool> isPickupRequestAssigned(String pickupRequestId) async {
+    try {
+      final existingAssignment = await _firestore
+          .collection('logisticsAssignments')
+          .where('pickup_request_id', isEqualTo: pickupRequestId)
+          .where('type', isEqualTo: 'pickup')
+          .get();
+      
+      return existingAssignment.docs.isNotEmpty;
+    } catch (e) {
+      print('🚚 [LOGISTICS_REPO] ❌ Error checking pickup request assignment: $e');
+      return false;
+    }
+  }
+
+  // Method to get the current logistics assignment for a pickup request
+  Stream<LogisticsAssignmentModel?> getLogisticsAssignmentForPickupRequest(String pickupRequestId) {
+    print('🚚 [LOGISTICS_REPO] Getting logistics assignment stream for pickup request: $pickupRequestId');
+    return _firestore
+        .collection('logisticsAssignments')
+        .where('pickup_request_id', isEqualTo: pickupRequestId)
+        .where('type', isEqualTo: 'pickup')
+        .snapshots()
+        .map((snapshot) {
+          print('🚚 [LOGISTICS_REPO] Found ${snapshot.docs.length} logistics assignments for pickup request: $pickupRequestId');
+          if (snapshot.docs.isNotEmpty) {
+            final doc = snapshot.docs.first;
+            try {
+              final assignment = LogisticsAssignmentModel.fromJson({
+                ...(doc.data() as Map<String, dynamic>),
+                'id': doc.id,
+              });
+              print('🚚 [LOGISTICS_REPO] ✅ Returning logistics assignment: ${assignment.id} for pickup request: $pickupRequestId');
+              return assignment;
+            } catch (e) {
+              print('🚚 [LOGISTICS_REPO] ❌ Error parsing logistics assignment ${doc.id}: $e');
+              return null;
+            }
+          }
+          print('🚚 [LOGISTICS_REPO] No logistics assignment found for pickup request: $pickupRequestId');
+          return null;
+        });
+  }
+
+  // Method to clean up invalid pickup requests
+  Future<void> cleanupInvalidPickupRequests() async {
+    try {
+      print('🚚 [LOGISTICS_REPO] Starting cleanup of invalid pickup requests...');
+      
+      final pickupRequests = await _firestore.collection('pickupRequests').get();
+      int cleanedCount = 0;
+      
+      for (final doc in pickupRequests.docs) {
+        try {
+          final data = doc.data() as Map<String, dynamic>;
+          
+          // Check if required fields are missing
+          if (!data.containsKey('tailor_id') || 
+              !data.containsKey('customer_name') || 
+              !data.containsKey('pickup_address')) {
+            
+            print('🚚 [LOGISTICS_REPO] 🧹 Cleaning up invalid pickup request: ${doc.id}');
+            await doc.reference.delete();
+            cleanedCount++;
+          }
+        } catch (e) {
+          print('🚚 [LOGISTICS_REPO] ⚠️ Error processing pickup request ${doc.id} during cleanup: $e');
+        }
+      }
+      
+      print('🚚 [LOGISTICS_REPO] ✅ Cleanup completed. Removed $cleanedCount invalid pickup requests');
+    } catch (e) {
+      print('🚚 [LOGISTICS_REPO] ❌ Error during cleanup: $e');
+      throw Exception('Failed to cleanup invalid pickup requests: $e');
+    }
+  }
+
+  // Method to validate pickup request before assignment
+  Future<bool> validatePickupRequest(String pickupRequestId) async {
+    try {
+      final pickupDoc = await _firestore.collection('pickupRequests').doc(pickupRequestId).get();
+      
+      if (!pickupDoc.exists) {
+        print('🚚 [LOGISTICS_REPO] ❌ Pickup request validation failed: $pickupRequestId does not exist');
+        return false;
+      }
+      
+      final data = pickupDoc.data() as Map<String, dynamic>;
+      
+      // Check required fields
+      if (!data.containsKey('tailor_id') || 
+          !data.containsKey('customer_name') || 
+          !data.containsKey('pickup_address')) {
+        print('🚚 [LOGISTICS_REPO] ❌ Pickup request validation failed: $pickupRequestId missing required fields');
+        return false;
+      }
+      
+      // Check status
+      if (data['status'] != 'pending') {
+        print('🚚 [LOGISTICS_REPO] ❌ Pickup request validation failed: $pickupRequestId not in pending status');
+        return false;
+      }
+      
+      print('🚚 [LOGISTICS_REPO] ✅ Pickup request validation passed: $pickupRequestId');
+      return true;
+    } catch (e) {
+      print('🚚 [LOGISTICS_REPO] ❌ Error validating pickup request $pickupRequestId: $e');
+      return false;
     }
   }
 } 

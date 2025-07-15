@@ -5,8 +5,10 @@ import '../../../auth/presentation/providers/auth_provider.dart';
 import '../../data/repositories/logistics_repository.dart';
 import '../../data/models/logistics_assignment_model.dart';
 import '../widgets/logistics_assignment_card.dart';
-import '../widgets/route_map_widget.dart';
+import '../widgets/warehouse_assignment_dialog.dart';
 import '../../../customer/presentation/pages/profile_page.dart';
+import '../../../tailor/data/repositories/tailor_repository.dart';
+import '../../../tailor/data/models/pickup_request_model.dart';
 import 'package:flutter/foundation.dart';
 
 // Provider for logistics repository
@@ -27,6 +29,16 @@ final availableWarehousesProvider = FutureProvider<List<Map<String, dynamic>>>((
   return await repository.getAvailableWarehouses();
 });
 
+// Provider for pickup requests
+final pickupRequestProvider = FutureProvider.family<PickupRequestModel, String>((ref, pickupRequestId) async {
+  final repository = TailorRepository();
+  final pickupRequest = await repository.getPickupRequest(pickupRequestId);
+  if (pickupRequest == null) {
+    throw Exception('Pickup request not found: $pickupRequestId');
+  }
+  return pickupRequest;
+});
+
 class LogisticsDashboard extends ConsumerStatefulWidget {
   final UserModel user;
 
@@ -38,11 +50,9 @@ class LogisticsDashboard extends ConsumerStatefulWidget {
 
 class _LogisticsDashboardState extends ConsumerState<LogisticsDashboard> {
   String _selectedStatus = 'All';
+  // Status filters matching all possible assignment statuses
   final List<String> _statusFilters = [
-    'All', 'Pending', 'Assigned', 'Pickup Scheduled', 'Pickup In Progress', 
-    'Picked Up', 'In Transit to Warehouse', 'Delivered to Warehouse', 
-    'Warehouse Processing', 'Ready for Delivery', 'Delivery Scheduled', 
-    'Delivery In Progress', 'Delivered to Customer', 'Completed', 'Cancelled'
+    'All', 'Pending', 'Assigned', 'In Progress', 'Completed', 'Cancelled'
   ];
 
   @override
@@ -57,31 +67,12 @@ class _LogisticsDashboardState extends ConsumerState<LogisticsDashboard> {
         backgroundColor: Theme.of(context).primaryColor,
         foregroundColor: Colors.white,
         actions: [
-          IconButton(
-            icon: const Icon(Icons.map),
-            onPressed: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (context) => const RouteMapWidget(),
-                ),
-              );
-            },
-          ),
           PopupMenuButton(
             icon: const Icon(Icons.more_vert),
             itemBuilder: (context) => [
               const PopupMenuItem(
                 value: 'profile',
                 child: Text('Profile'),
-              ),
-              const PopupMenuItem(
-                value: 'analytics',
-                child: Text('Analytics'),
-              ),
-              const PopupMenuItem(
-                value: 'settings',
-                child: Text('Settings'),
               ),
               const PopupMenuItem(
                 value: 'logout',
@@ -129,12 +120,7 @@ class _LogisticsDashboardState extends ConsumerState<LogisticsDashboard> {
               ),
             ),
             
-            // Analytics Cards
-            assignmentsAsync.when(
-              data: (assignments) => _buildAnalyticsCards(assignments),
-              loading: () => const Center(child: CircularProgressIndicator()),
-              error: (error, stack) => Center(child: Text('Error: $error')),
-            ),
+
             
             // Status Filter
             Padding(
@@ -159,7 +145,7 @@ class _LogisticsDashboardState extends ConsumerState<LogisticsDashboard> {
                       itemBuilder: (context, index) {
                         final status = _statusFilters[index];
                         final isSelected = status == _selectedStatus;
-                        return Container(
+                    return Container(
                           margin: const EdgeInsets.only(right: 8),
                           child: FilterChip(
                             label: Text(status),
@@ -256,13 +242,13 @@ class _LogisticsDashboardState extends ConsumerState<LogisticsDashboard> {
                 backgroundColor: Colors.green,
                 foregroundColor: Colors.white,
               ),
-            ),
+                            ),
                           ],
                         ),
                       ),
                     ],
-                  );
-                }
+                    );
+                  }
                   
                 return Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -272,13 +258,14 @@ class _LogisticsDashboardState extends ConsumerState<LogisticsDashboard> {
                     itemCount: filteredAssignments.length,
                     itemBuilder: (context, index) {
                       final assignment = filteredAssignments[index];
+                      final isCompleted = assignment.isCompleted;
                       return LogisticsAssignmentCard(
                         assignment: assignment,
-                        onStatusUpdate: () => _updateAssignmentStatus(assignment),
-                        onWarehouseAssign: assignment.assignedWarehouseId == null 
-                            ? () => _assignWarehouse(assignment, warehousesAsync)
-                            : null,
+                        onStatusUpdate: isCompleted ? null : () => _updateAssignmentStatus(assignment),
+                        onWarehouseAssign: () => _assignWarehouse(assignment, warehousesAsync),
                         onViewDetails: () => _showAssignmentDetails(assignment),
+                        isCompleted: isCompleted,
+                        currentUserId: widget.user.id, // Pass current user ID
                       );
                     },
                   ),
@@ -298,126 +285,26 @@ class _LogisticsDashboardState extends ConsumerState<LogisticsDashboard> {
           ],
         ),
       ),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: () {
-          Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (context) => const RouteMapWidget(),
-            ),
-          );
-        },
-        icon: const Icon(Icons.navigation),
-        label: const Text('Navigate'),
-      ),
+
     );
   }
 
-  Widget _buildAnalyticsCards(List<LogisticsAssignmentModel> assignments) {
-    final total = assignments.length;
-    final pending = assignments.where((a) => a.isPending).length;
-    final inProgress = assignments.where((a) => a.isInProgress).length;
-    final completed = assignments.where((a) => a.isCompleted).length;
-    final totalWeight = assignments.fold<double>(0, (sum, a) => sum + a.estimatedWeight);
-    
-    return Padding(
-      padding: const EdgeInsets.all(16),
-      child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-          Text(
-            'Overview',
-            style: Theme.of(context).textTheme.titleLarge?.copyWith(
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-          const SizedBox(height: 12),
-          Row(
-            children: [
-              Expanded(
-                child: _buildAnalyticsCard(
-                  'Total Assignments',
-                  '$total',
-                  Icons.assignment,
-                  Colors.blue,
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: _buildAnalyticsCard(
-                  'In Progress',
-                  '$inProgress',
-                  Icons.pending,
-                  Colors.orange,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 12),
-          Row(
-            children: [
-              Expanded(
-                child: _buildAnalyticsCard(
-                  'Completed',
-                  '$completed',
-                  Icons.check_circle,
-                  Colors.green,
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: _buildAnalyticsCard(
-                  'Total Weight',
-                  '${totalWeight.toStringAsFixed(1)}kg',
-                  Icons.scale,
-                  Colors.purple,
-                ),
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
 
-  Widget _buildAnalyticsCard(String title, String value, IconData icon, Color color) {
-    return Card(
-      elevation: 2,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          children: [
-            Icon(icon, size: 32, color: color),
-            const SizedBox(height: 8),
-            Text(
-              value,
-              style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                fontWeight: FontWeight.bold,
-                color: color,
-              ),
-            ),
-            const SizedBox(height: 4),
-            Text(
-              title,
-              style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                color: Colors.grey[600],
-              ),
-              textAlign: TextAlign.center,
-            ),
-          ],
-        ),
-      ),
-    );
-  }
 
   List<LogisticsAssignmentModel> _filterAssignments(List<LogisticsAssignmentModel> assignments) {
     print('🚚 [LOGISTICS_DASHBOARD] Filtering assignments with status: $_selectedStatus');
     print('🚚 [LOGISTICS_DASHBOARD] Available statuses: ${assignments.map((a) => a.statusDisplayName).toSet().toList()}');
     
     if (_selectedStatus == 'All') {
-      print('🚚 [LOGISTICS_DASHBOARD] Showing all assignments (${assignments.length})');
-      return assignments;
+      // Sort: non-completed first, then completed
+      final sorted = List<LogisticsAssignmentModel>.from(assignments);
+      sorted.sort((a, b) {
+        if (a.isCompleted && !b.isCompleted) return 1;
+        if (!a.isCompleted && b.isCompleted) return -1;
+        return a.createdAt.compareTo(b.createdAt);
+      });
+      print('🚚 [LOGISTICS_DASHBOARD] Showing all assignments (sorted, ${sorted.length})');
+      return sorted;
     }
     
     final filtered = assignments.where((assignment) {
@@ -436,12 +323,6 @@ class _LogisticsDashboardState extends ConsumerState<LogisticsDashboard> {
         Navigator.of(context).push(
           MaterialPageRoute(builder: (context) => const ProfilePage()),
         );
-        break;
-      case 'analytics':
-        // TODO: Navigate to analytics page
-        break;
-      case 'settings':
-        // TODO: Navigate to settings page
         break;
       case 'logout':
         ref.read(loginProvider.notifier).signOut();
@@ -496,45 +377,53 @@ class _LogisticsDashboardState extends ConsumerState<LogisticsDashboard> {
   }
 
   void _assignWarehouse(LogisticsAssignmentModel assignment, AsyncValue<List<Map<String, dynamic>>> warehousesAsync) {
-    warehousesAsync.when(
-      data: (warehouses) {
+    print('🚚 [LOGISTICS_DASHBOARD] _assignWarehouse called for assignment: ${assignment.id}');
+    print('🚚 [LOGISTICS_DASHBOARD] Assignment assignedWarehouseId: ${assignment.assignedWarehouseId}');
+    print('🚚 [LOGISTICS_DASHBOARD] Assignment status: ${assignment.statusDisplayName}');
+    
+    // Check if assignment is already assigned to a warehouse
+    if (assignment.assignedWarehouseId != null) {
+      print('🚚 [LOGISTICS_DASHBOARD] Assignment already has warehouse assigned: ${assignment.assignedWarehouseId}');
+      showDialog(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: const Text('Already Assigned'),
+          content: Text(
+            'This assignment is already assigned to warehouse: ${assignment.assignedWarehouseName ?? 'Unknown Warehouse'}. '
+            'You cannot assign it to another warehouse.',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('OK'),
+            ),
+          ],
+        ),
+      );
+      return;
+    }
+    
+    // Get the pickup request for this assignment
+    final pickupRequestAsync = ref.read(pickupRequestProvider(assignment.pickupRequestId));
+    
+    pickupRequestAsync.when(
+      data: (pickupRequest) {
         showDialog(
           context: context,
-          builder: (context) => AlertDialog(
-            title: const Text('Assign Warehouse'),
-            content: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text('Select warehouse for this assignment:'),
-                const SizedBox(height: 16),
-                ...warehouses.map((warehouse) {
-                  return ListTile(
-                    title: Text(warehouse['name'] ?? 'Unknown Warehouse'),
-                    subtitle: Text(warehouse['address'] ?? 'No address'),
-                    leading: const Icon(Icons.warehouse),
-                    onTap: () {
-                      Navigator.pop(context);
-                      _performWarehouseAssignment(
-                        assignment.id,
-                        warehouse['id'],
-                        warehouse['name'],
-                        warehouse['type'] ?? 'mainWarehouse',
-                        warehouse['address'],
-                      );
-                    },
-                  );
-                }).toList(),
-              ],
-            ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(context),
-                child: const Text('Cancel'),
-              ),
-            ],
+          builder: (context) => WarehouseAssignmentDialog(
+            logisticsAssignment: assignment,
+            pickupRequest: pickupRequest,
           ),
-        );
+        ).then((result) {
+          print('🚚 [LOGISTICS_DASHBOARD] Dialog closed with result: $result');
+          if (result == true) {
+            // Assignment was created successfully, refresh the assignments
+            print('🚚 [LOGISTICS_DASHBOARD] ✅ Assignment successful, invalidating provider');
+            ref.invalidate(logisticsAssignmentsProvider(widget.user.id));
+          } else {
+            print('🚚 [LOGISTICS_DASHBOARD] ❌ Assignment failed or cancelled');
+          }
+        });
       },
       loading: () => showDialog(
         context: context,
@@ -546,7 +435,7 @@ class _LogisticsDashboardState extends ConsumerState<LogisticsDashboard> {
         context: context,
         builder: (context) => AlertDialog(
           title: const Text('Error'),
-          content: Text('Failed to load warehouses: $error'),
+          content: Text('Failed to load pickup request: $error'),
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(context),
@@ -668,6 +557,10 @@ class _LogisticsDashboardState extends ConsumerState<LogisticsDashboard> {
   }
 
   void _performStatusUpdate(String assignmentId, LogisticsAssignmentStatus status) {
+    if (status == LogisticsAssignmentStatus.cancelled) {
+      // Show cancellation reason dialog
+      _showCancellationReasonDialog(assignmentId);
+    } else {
     final repository = ref.read(logisticsRepositoryProvider);
     repository.updateLogisticsAssignmentStatus(assignmentId, status).then((_) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -680,6 +573,84 @@ class _LogisticsDashboardState extends ConsumerState<LogisticsDashboard> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text('Error updating status: $error'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      });
+    }
+  }
+
+  void _showCancellationReasonDialog(String assignmentId) {
+    final reasonController = TextEditingController();
+    
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Cancel Assignment'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text('Please provide a reason for cancelling this assignment:'),
+            const SizedBox(height: 16),
+            TextField(
+              controller: reasonController,
+              decoration: const InputDecoration(
+                hintText: 'Enter cancellation reason...',
+                border: OutlineInputBorder(),
+              ),
+              maxLines: 3,
+              maxLength: 200,
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              final reason = reasonController.text.trim();
+              if (reason.isEmpty) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text('Please provide a cancellation reason'),
+                    backgroundColor: Colors.orange,
+                  ),
+                );
+                return;
+              }
+              
+              Navigator.pop(context);
+              _performCancellation(assignmentId, reason);
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.red,
+              foregroundColor: Colors.white,
+            ),
+            child: const Text('Cancel Assignment'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _performCancellation(String assignmentId, String reason) {
+    final repository = ref.read(logisticsRepositoryProvider);
+    final user = widget.user;
+    
+    repository.cancelLogisticsAssignment(assignmentId, reason, user.id).then((_) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Assignment cancelled successfully. Reason: $reason'),
+          backgroundColor: Colors.orange,
+        ),
+      );
+    }).catchError((error) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Error cancelling assignment: $error'),
           backgroundColor: Colors.red,
         ),
       );
@@ -839,25 +810,84 @@ class _LogisticsDashboardState extends ConsumerState<LogisticsDashboard> {
       
       // Assign each available request to this logistics user
       int assignedCount = 0;
+      int alreadyAssignedCount = 0;
+      List<String> errors = [];
+      
       for (final request in availableRequests) {
         try {
+          // Check if already assigned before attempting assignment
+          final isAssigned = await repository.isPickupRequestAssigned(request['id']);
+          if (isAssigned) {
+            alreadyAssignedCount++;
+            print('🚚 [LOGISTICS_DASHBOARD] ⚠️ Pickup request ${request['id']} is already assigned');
+            continue;
+          }
+          
           await repository.assignLogisticsToPickupRequest(request['id'], user.id);
           assignedCount++;
           print('🚚 [LOGISTICS_DASHBOARD] ✅ Assigned pickup request: ${request['id']}');
         } catch (e) {
-          print('🚚 [LOGISTICS_DASHBOARD] ❌ Error assigning pickup request ${request['id']}: $e');
+          final errorMessage = e.toString();
+          if (errorMessage.contains('already assigned')) {
+            alreadyAssignedCount++;
+            print('🚚 [LOGISTICS_DASHBOARD] ⚠️ Pickup request ${request['id']} is already assigned: $e');
+          } else {
+            errors.add('Request ${request['id']}: $errorMessage');
+            print('🚚 [LOGISTICS_DASHBOARD] ❌ Error assigning pickup request ${request['id']}: $e');
+          }
         }
       }
 
       // Refresh assignments to show the new ones
       ref.invalidate(logisticsAssignmentsProvider(user.id));
 
+      // Show results
+      String message = 'Successfully assigned $assignedCount pickup requests!';
+      Color backgroundColor = Colors.green;
+      
+      if (alreadyAssignedCount > 0) {
+        message += ' $alreadyAssignedCount were already assigned to other logistics partners.';
+        backgroundColor = Colors.blue;
+      }
+      
+      if (errors.isNotEmpty) {
+        message += ' ${errors.length} assignments failed.';
+        backgroundColor = Colors.orange;
+      }
+
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Successfully assigned $assignedCount pickup requests!'),
-          backgroundColor: Colors.green,
+          content: Text(message),
+          backgroundColor: backgroundColor,
+          duration: const Duration(seconds: 4),
         ),
       );
+      
+      // Show detailed errors if any
+      if (errors.isNotEmpty) {
+        showDialog(
+          context: context,
+          builder: (context) => AlertDialog(
+            title: const Text('Assignment Errors'),
+            content: SingleChildScrollView(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: errors.map((error) => Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 4),
+                  child: Text('• $error'),
+                )).toList(),
+              ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(context).pop(),
+                child: const Text('Close'),
+              ),
+            ],
+          ),
+        );
+      }
       
       print('🚚 [LOGISTICS_DASHBOARD] ✅ Completed assigning pickup requests');
     } catch (e) {

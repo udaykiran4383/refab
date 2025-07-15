@@ -20,14 +20,11 @@ enum PickupStatus {
 // New enum for tailor work progress
 enum TailorWorkProgress {
   notStarted,
-  fabricReceived,
-  fabricInspected,
-  cuttingStarted,
-  cuttingComplete,
-  sewingStarted,
-  sewingComplete,
+  workStarted,
+  workInProgress,
+  workCompleted,
   qualityCheck,
-  readyForDelivery,
+  readyForPickup,
   completed
 }
 
@@ -82,6 +79,11 @@ class PickupRequestModel {
   final String? progress; // Legacy field - keeping for backward compatibility
   final TailorWorkProgress? workProgress; // New field for proper progress tracking
   final Map<String, dynamic>? metadata;
+  
+  // Cancellation tracking fields
+  final String? cancellationReason;
+  final String? cancelledBy;
+  final DateTime? cancelledAt;
 
   PickupRequestModel({
     required this.id,
@@ -114,6 +116,9 @@ class PickupRequestModel {
     this.progress,
     this.workProgress,
     this.metadata,
+    this.cancellationReason,
+    this.cancelledBy,
+    this.cancelledAt,
   });
 
   factory PickupRequestModel.fromJson(Map<String, dynamic> json) {
@@ -185,6 +190,11 @@ class PickupRequestModel {
       progress: json['progress'],
       workProgress: workProgress,
       metadata: json['metadata'],
+      cancellationReason: json['cancellation_reason'],
+      cancelledBy: json['cancelled_by'],
+      cancelledAt: json['cancelled_at'] != null 
+          ? DateTime.parse(json['cancelled_at']) 
+          : null,
     );
   }
 
@@ -220,6 +230,9 @@ class PickupRequestModel {
       'progress': progress,
       'work_progress': workProgress?.toString().split('.').last,
       'metadata': metadata,
+      'cancellation_reason': cancellationReason,
+      'cancelled_by': cancelledBy,
+      'cancelled_at': cancelledAt?.toIso8601String(),
     };
   }
 
@@ -302,15 +315,12 @@ class PickupRequestModel {
 
   // Work progress getters
   bool get isWorkNotStarted => workProgress == null || workProgress == TailorWorkProgress.notStarted;
-  bool get isFabricReceived => workProgress == TailorWorkProgress.fabricReceived;
-  bool get isFabricInspected => workProgress == TailorWorkProgress.fabricInspected;
-  bool get isCuttingStarted => workProgress == TailorWorkProgress.cuttingStarted;
-  bool get isCuttingComplete => workProgress == TailorWorkProgress.cuttingComplete;
-  bool get isSewingStarted => workProgress == TailorWorkProgress.sewingStarted;
-  bool get isSewingComplete => workProgress == TailorWorkProgress.sewingComplete;
+  bool get isWorkStarted => workProgress == TailorWorkProgress.workStarted;
+  bool get isWorkInProgress => workProgress == TailorWorkProgress.workInProgress;
+  bool get isWorkCompleted => workProgress == TailorWorkProgress.workCompleted;
   bool get isQualityCheckDone => workProgress == TailorWorkProgress.qualityCheck;
-  bool get isReadyForDelivery => workProgress == TailorWorkProgress.readyForDelivery;
-  bool get isWorkCompleted => workProgress == TailorWorkProgress.completed;
+  bool get isReadyForPickup => workProgress == TailorWorkProgress.readyForPickup;
+  bool get isWorkFinished => workProgress == TailorWorkProgress.completed;
 
   // Progress calculation for progress bar
   double get workProgressPercentage {
@@ -319,21 +329,15 @@ class PickupRequestModel {
     switch (workProgress!) {
       case TailorWorkProgress.notStarted:
         return 0.0;
-      case TailorWorkProgress.fabricReceived:
-        return 10.0;
-      case TailorWorkProgress.fabricInspected:
+      case TailorWorkProgress.workStarted:
         return 20.0;
-      case TailorWorkProgress.cuttingStarted:
-        return 30.0;
-      case TailorWorkProgress.cuttingComplete:
+      case TailorWorkProgress.workInProgress:
         return 50.0;
-      case TailorWorkProgress.sewingStarted:
-        return 60.0;
-      case TailorWorkProgress.sewingComplete:
-        return 80.0;
+      case TailorWorkProgress.workCompleted:
+        return 70.0;
       case TailorWorkProgress.qualityCheck:
-        return 90.0;
-      case TailorWorkProgress.readyForDelivery:
+        return 85.0;
+      case TailorWorkProgress.readyForPickup:
         return 95.0;
       case TailorWorkProgress.completed:
         return 100.0;
@@ -351,7 +355,7 @@ class PickupRequestModel {
   bool get canStartWork => isPickedUp || isInTransit || isDelivered;
   
   // Check if tailor can update work progress
-  bool get canUpdateWorkProgress => canStartWork && !isWorkCompleted;
+  bool get canUpdateWorkProgress => canStartWork && !isWorkFinished;
 
   String get statusDisplayName {
     switch (status) {
@@ -384,24 +388,18 @@ class PickupRequestModel {
     switch (workProgress!) {
       case TailorWorkProgress.notStarted:
         return 'Not Started';
-      case TailorWorkProgress.fabricReceived:
-        return 'Fabric Received';
-      case TailorWorkProgress.fabricInspected:
-        return 'Fabric Inspected';
-      case TailorWorkProgress.cuttingStarted:
-        return 'Cutting Started';
-      case TailorWorkProgress.cuttingComplete:
-        return 'Cutting Complete';
-      case TailorWorkProgress.sewingStarted:
-        return 'Sewing Started';
-      case TailorWorkProgress.sewingComplete:
-        return 'Sewing Complete';
+      case TailorWorkProgress.workStarted:
+        return 'Work Started';
+      case TailorWorkProgress.workInProgress:
+        return 'Work In Progress';
+      case TailorWorkProgress.workCompleted:
+        return 'Work Completed';
       case TailorWorkProgress.qualityCheck:
         return 'Quality Check';
-      case TailorWorkProgress.readyForDelivery:
-        return 'Ready for Delivery';
+      case TailorWorkProgress.readyForPickup:
+        return 'Ready for Pickup';
       case TailorWorkProgress.completed:
-        return 'Work Completed';
+        return 'Completed';
     }
   }
 
@@ -439,17 +437,19 @@ TailorWorkProgress _convertLegacyProgressToEnum(String? legacyProgress) {
     case 'not started':
       return TailorWorkProgress.notStarted;
     case 'started work':
-      return TailorWorkProgress.fabricReceived;
-    case 'fabric prepared':
-      return TailorWorkProgress.fabricInspected;
-    case 'cutting complete':
-      return TailorWorkProgress.cuttingComplete;
-    case 'sewing complete':
-      return TailorWorkProgress.sewingComplete;
+    case 'work started':
+      return TailorWorkProgress.workStarted;
+    case 'work in progress':
+    case 'in progress':
+      return TailorWorkProgress.workInProgress;
+    case 'work completed':
+    case 'completed':
+      return TailorWorkProgress.workCompleted;
     case 'quality check done':
+    case 'quality check':
       return TailorWorkProgress.qualityCheck;
     case 'ready for pickup':
-      return TailorWorkProgress.readyForDelivery;
+      return TailorWorkProgress.readyForPickup;
     default:
       return TailorWorkProgress.notStarted;
   }

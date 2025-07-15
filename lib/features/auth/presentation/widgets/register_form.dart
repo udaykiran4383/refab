@@ -85,7 +85,9 @@ class _RegisterFormState extends ConsumerState<RegisterForm> {
               prefixIcon: Icon(Icons.work),
               border: OutlineInputBorder(),
             ),
-            items: UserRole.values.map((role) {
+            items: UserRole.values
+                .where((role) => role != UserRole.warehouse) // Exclude warehouse role
+                .map((role) {
               return DropdownMenuItem(
                 value: role,
                 child: Text(_getRoleDisplayName(role)),
@@ -144,14 +146,14 @@ class _RegisterFormState extends ConsumerState<RegisterForm> {
         return 'Tailor';
       case UserRole.logistics:
         return 'Logistics Partner';
-      case UserRole.warehouse:
-        return 'Warehouse Admin';
       case UserRole.customer:
         return 'Customer';
       case UserRole.volunteer:
         return 'Volunteer/Intern';
       case UserRole.admin:
         return 'Admin';
+      case UserRole.warehouse:
+        return 'Warehouse Admin'; // Keep simple for internal use
     }
   }
 

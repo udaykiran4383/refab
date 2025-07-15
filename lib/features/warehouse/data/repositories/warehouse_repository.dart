@@ -1,9 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../models/inventory_model.dart';
-import '../models/processing_task_model.dart';
-import '../models/warehouse_analytics_model.dart';
 import '../models/warehouse_worker_model.dart';
-import '../models/warehouse_location_model.dart';
+import '../models/warehouse_assignment_model.dart';
 
 class WarehouseRepository {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
@@ -22,7 +20,7 @@ class WarehouseRepository {
   Stream<List<InventoryModel>> getInventoryItems({
     String? warehouseId,
     String? status,
-    String? category,
+    String? fabricCategory,
     String? qualityGrade,
   }) {
     Query query = _firestore.collection('inventory');
@@ -35,8 +33,8 @@ class WarehouseRepository {
       query = query.where('status', isEqualTo: status);
     }
     
-    if (category != null) {
-      query = query.where('fabricCategory', isEqualTo: category);
+    if (fabricCategory != null) {
+      query = query.where('fabricCategory', isEqualTo: fabricCategory);
     }
     
     if (qualityGrade != null) {
@@ -48,7 +46,7 @@ class WarehouseRepository {
         .snapshots()
         .map((snapshot) => snapshot.docs
             .map((doc) => InventoryModel.fromJson({
-                  ...doc.data() as Map<String, dynamic>,
+                  ...(doc.data() as Map<String, dynamic>),
                   'id': doc.id,
                 }))
             .toList());
@@ -59,7 +57,7 @@ class WarehouseRepository {
       final doc = await _firestore.collection('inventory').doc(itemId).get();
       if (doc.exists) {
         return InventoryModel.fromJson({
-          ...doc.data() as Map<String, dynamic>,
+          ...(doc.data()! as Map<String, dynamic>),
           'id': doc.id,
         });
       }
@@ -117,7 +115,6 @@ class WarehouseRepository {
           .where('warehouseId', isEqualTo: warehouseId)
           .where('status', isEqualTo: InventoryStatus.lowStock.toString().split('.').last)
           .get();
-      
       return snapshot.docs
           .map((doc) => InventoryModel.fromJson({
                 ...doc.data() as Map<String, dynamic>,
@@ -136,7 +133,6 @@ class WarehouseRepository {
           .where('warehouseId', isEqualTo: warehouseId)
           .where('fabricCategory', isEqualTo: category)
           .get();
-      
       return snapshot.docs
           .map((doc) => InventoryModel.fromJson({
                 ...doc.data() as Map<String, dynamic>,
@@ -145,108 +141,6 @@ class WarehouseRepository {
           .toList();
     } catch (e) {
       throw Exception('Failed to get inventory by category: $e');
-    }
-  }
-
-  // ==================== PROCESSING TASKS ====================
-
-  Future<String> createProcessingTask(ProcessingTaskModel task) async {
-    try {
-      final docRef = await _firestore.collection('processingTasks').add(task.toJson());
-      return docRef.id;
-    } catch (e) {
-      throw Exception('Failed to create processing task: $e');
-    }
-  }
-
-  Stream<List<ProcessingTaskModel>> getProcessingTasks({
-    String? warehouseId,
-    String? status,
-    String? workerId,
-    TaskType? taskType,
-  }) {
-    Query query = _firestore.collection('processingTasks');
-    
-    if (warehouseId != null) {
-      query = query.where('warehouseId', isEqualTo: warehouseId);
-    }
-    
-    if (status != null) {
-      query = query.where('status', isEqualTo: status);
-    }
-    
-    if (workerId != null) {
-      query = query.where('assignedWorkerId', isEqualTo: workerId);
-    }
-    
-    if (taskType != null) {
-      query = query.where('taskType', isEqualTo: taskType.toString().split('.').last);
-    }
-    
-    return query
-        .orderBy('createdAt', descending: true)
-        .snapshots()
-        .map((snapshot) => snapshot.docs
-            .map((doc) => ProcessingTaskModel.fromJson({
-                  ...doc.data() as Map<String, dynamic>,
-                  'id': doc.id,
-                }))
-            .toList());
-  }
-
-  Future<void> updateProcessingTask(String taskId, Map<String, dynamic> updates) async {
-    try {
-      await _firestore.collection('processingTasks').doc(taskId).update({
-        ...updates,
-        'updatedAt': DateTime.now().toIso8601String(),
-      });
-    } catch (e) {
-      throw Exception('Failed to update processing task: $e');
-    }
-  }
-
-  Future<void> updateTaskStatus(String taskId, TaskStatus status) async {
-    try {
-      final updates = {
-        'status': status.toString().split('.').last,
-        'updatedAt': DateTime.now().toIso8601String(),
-      };
-      
-      if (status == TaskStatus.inProgress) {
-        updates['startDate'] = DateTime.now().toIso8601String();
-      } else if (status == TaskStatus.completed) {
-        updates['completedAt'] = DateTime.now().toIso8601String();
-      }
-      
-      await _firestore.collection('processingTasks').doc(taskId).update(updates);
-    } catch (e) {
-      throw Exception('Failed to update task status: $e');
-    }
-  }
-
-  Future<void> assignTaskToWorker(String taskId, String workerId, String workerName) async {
-    try {
-      await _firestore.collection('processingTasks').doc(taskId).update({
-        'assignedWorkerId': workerId,
-        'assignedTo': workerName,
-        'status': TaskStatus.assigned.toString().split('.').last,
-        'updatedAt': DateTime.now().toIso8601String(),
-      });
-    } catch (e) {
-      throw Exception('Failed to assign task to worker: $e');
-    }
-  }
-
-  Future<void> completeTask(String taskId, Map<String, dynamic> completionData) async {
-    try {
-      await _firestore.collection('processingTasks').doc(taskId).update({
-        'status': TaskStatus.completed.toString().split('.').last,
-        'completionData': completionData,
-        'completedAt': DateTime.now().toIso8601String(),
-        'updatedAt': DateTime.now().toIso8601String(),
-      });
-    } catch (e) {
-      throw Exception('Failed to complete task: $e');
     }
   }
 
@@ -267,19 +161,15 @@ class WarehouseRepository {
     WorkerRole? role,
   }) {
     Query query = _firestore.collection('warehouseWorkers');
-    
     if (warehouseId != null) {
       query = query.where('warehouseId', isEqualTo: warehouseId);
     }
-    
     if (status != null) {
       query = query.where('status', isEqualTo: status);
     }
-    
     if (role != null) {
       query = query.where('role', isEqualTo: role.toString().split('.').last);
     }
-    
     return query
         .orderBy('createdAt', descending: true)
         .snapshots()
@@ -313,251 +203,274 @@ class WarehouseRepository {
     }
   }
 
-  // ==================== LOCATION MANAGEMENT ====================
+  // ==================== WAREHOUSE ASSIGNMENTS ====================
 
-  Future<String> createLocation(WarehouseLocationModel location) async {
+  Future<String> createWarehouseAssignment(WarehouseAssignmentModel assignment) async {
     try {
-      final docRef = await _firestore.collection('warehouseLocations').add(location.toJson());
+      print('🏭 [WAREHOUSE_REPO] Creating warehouse assignment for warehouse: ${assignment.warehouseId}');
+      print('🏭 [WAREHOUSE_REPO] Assignment data: ${assignment.toJson()}');
+      final docRef = await _firestore.collection('warehouseAssignments').add(assignment.toJson());
+      print('🏭 [WAREHOUSE_REPO] ✅ Assignment created with ID: ${docRef.id}');
       return docRef.id;
     } catch (e) {
-      throw Exception('Failed to create location: $e');
+      print('🏭 [WAREHOUSE_REPO] ❌ Error creating warehouse assignment: $e');
+      throw Exception('Failed to create warehouse assignment: $e');
     }
   }
 
-  Stream<List<WarehouseLocationModel>> getLocations({
-    String? warehouseId,
-    String? status,
-    LocationType? type,
-  }) {
-    Query query = _firestore.collection('warehouseLocations');
-    
-    if (warehouseId != null) {
-      query = query.where('warehouseId', isEqualTo: warehouseId);
-    }
-    
-    if (status != null) {
-      query = query.where('status', isEqualTo: status);
-    }
-    
-    if (type != null) {
-      query = query.where('type', isEqualTo: type.toString().split('.').last);
-    }
-    
-    return query
+  Stream<List<WarehouseAssignmentModel>> getWarehouseAssignments(String warehouseId) {
+    print('🏭 [WAREHOUSE_REPO] Getting assignments for warehouse: $warehouseId');
+    return _firestore
+        .collection('warehouseAssignments')
+        .where('warehouseId', isEqualTo: warehouseId)
         .orderBy('createdAt', descending: true)
         .snapshots()
+        .map((snapshot) {
+          print('🏭 [WAREHOUSE_REPO] Found ${snapshot.docs.length} assignments for warehouse: $warehouseId');
+          final assignments = snapshot.docs.map((doc) {
+            try {
+              final data = doc.data() as Map<String, dynamic>;
+              print('🏭 [WAREHOUSE_REPO] Assignment ${doc.id}: warehouseId=${data['warehouseId']}, status=${data['status']}');
+              return WarehouseAssignmentModel.fromJson({
+                ...data,
+                'id': doc.id,
+              });
+            } catch (e) {
+              print('🏭 [WAREHOUSE_REPO] ❌ Error parsing assignment ${doc.id}: $e');
+              return null;
+            }
+          }).where((assignment) => assignment != null).cast<WarehouseAssignmentModel>().toList();
+          
+          print('🏭 [WAREHOUSE_REPO] ✅ Returning ${assignments.length} valid assignments');
+          return assignments;
+        });
+  }
+
+  Stream<List<WarehouseAssignmentModel>> getAllWarehouseAssignments() {
+    print('🏭 [WAREHOUSE_REPO] Getting all assignments for all warehouses');
+    return _firestore
+        .collection('warehouseAssignments')
+        .orderBy('createdAt', descending: true)
+        .snapshots()
+        .map((snapshot) {
+          print('🏭 [WAREHOUSE_REPO] Found ${snapshot.docs.length} assignments for all warehouses');
+          final assignments = snapshot.docs.map((doc) {
+            try {
+              final data = doc.data() as Map<String, dynamic>;
+              print('🏭 [WAREHOUSE_REPO] Assignment ${doc.id}: warehouseId=${data['warehouseId']}, status=${data['status']}');
+              return WarehouseAssignmentModel.fromJson({
+                ...data,
+                'id': doc.id,
+              });
+            } catch (e) {
+              print('🏭 [WAREHOUSE_REPO] ❌ Error parsing assignment ${doc.id}: $e');
+              return null;
+            }
+          }).where((assignment) => assignment != null).cast<WarehouseAssignmentModel>().toList();
+          
+          print('🏭 [WAREHOUSE_REPO] ✅ Returning ${assignments.length} valid assignments for all warehouses');
+          return assignments;
+        });
+  }
+
+  Stream<List<WarehouseAssignmentModel>> getTodayAssignments(String warehouseId) {
+    final today = DateTime.now();
+    final startOfDay = DateTime(today.year, today.month, today.day);
+    final endOfDay = startOfDay.add(const Duration(days: 1));
+
+    return _firestore
+        .collection('warehouseAssignments')
+        .where('warehouseId', isEqualTo: warehouseId)
+        .where('scheduledArrivalTime', isGreaterThanOrEqualTo: startOfDay.toIso8601String())
+        .where('scheduledArrivalTime', isLessThan: endOfDay.toIso8601String())
+        .orderBy('scheduledArrivalTime', descending: false)
+        .snapshots()
         .map((snapshot) => snapshot.docs
-            .map((doc) => WarehouseLocationModel.fromJson({
-                  ...doc.data() as Map<String, dynamic>,
+            .map((doc) => WarehouseAssignmentModel.fromJson({
+                  ...(doc.data() as Map<String, dynamic>),
                   'id': doc.id,
                 }))
             .toList());
   }
 
-  Future<void> updateLocation(String locationId, Map<String, dynamic> updates) async {
+  Stream<List<WarehouseAssignmentModel>> getInTransitAssignments(String warehouseId) {
+    return _firestore
+        .collection('warehouseAssignments')
+        .where('warehouseId', isEqualTo: warehouseId)
+        .where('status', isEqualTo: WarehouseAssignmentStatus.inTransit.toString().split('.').last)
+        .orderBy('scheduledArrivalTime', descending: false)
+        .snapshots()
+        .map((snapshot) => snapshot.docs
+            .map((doc) => WarehouseAssignmentModel.fromJson({
+                  ...(doc.data() as Map<String, dynamic>),
+                  'id': doc.id,
+                }))
+            .toList());
+  }
+
+  Future<WarehouseAssignmentModel?> getWarehouseAssignment(String assignmentId) async {
     try {
-      await _firestore.collection('warehouseLocations').doc(locationId).update({
-        ...updates,
+      final doc = await _firestore.collection('warehouseAssignments').doc(assignmentId).get();
+      if (doc.exists) {
+        return WarehouseAssignmentModel.fromJson({
+          ...(doc.data()! as Map<String, dynamic>),
+          'id': doc.id,
+        });
+      }
+      return null;
+    } catch (e) {
+      throw Exception('Failed to get warehouse assignment: $e');
+    }
+  }
+
+  Future<void> updateAssignmentStatus(String assignmentId, WarehouseAssignmentStatus status) async {
+    try {
+      final updates = {
+        'status': status.toString().split('.').last,
         'updatedAt': DateTime.now().toIso8601String(),
-      });
-    } catch (e) {
-      throw Exception('Failed to update location: $e');
-    }
-  }
-
-  Future<void> updateLocationOccupancy(String locationId, double occupancy) async {
-    try {
-      await _firestore.collection('warehouseLocations').doc(locationId).update({
-        'currentOccupancy': occupancy,
-        'updatedAt': DateTime.now().toIso8601String(),
-      });
-    } catch (e) {
-      throw Exception('Failed to update location occupancy: $e');
-    }
-  }
-
-  // ==================== ANALYTICS ====================
-
-  Future<WarehouseAnalyticsModel> getWarehouseAnalytics(String warehouseId) async {
-    try {
-      final inventory = await _firestore
-          .collection('inventory')
-          .where('warehouseId', isEqualTo: warehouseId)
-          .get();
-      
-      final processingTasks = await _firestore
-          .collection('processingTasks')
-          .where('warehouseId', isEqualTo: warehouseId)
-          .get();
-
-      final totalInventory = inventory.docs.length;
-      final processingInventory = inventory.docs
-          .where((doc) => doc.data()['status'] == InventoryStatus.processing.toString().split('.').last)
-          .length;
-      final readyInventory = inventory.docs
-          .where((doc) => doc.data()['status'] == InventoryStatus.ready.toString().split('.').last)
-          .length;
-      final lowStockInventory = inventory.docs
-          .where((doc) => doc.data()['status'] == InventoryStatus.lowStock.toString().split('.').last)
-          .length;
-      final totalWeight = inventory.docs
-          .fold<double>(0, (sum, doc) => sum + (doc.data()['actualWeight'] ?? 0));
-
-      final totalTasks = processingTasks.docs.length;
-      final completedTasks = processingTasks.docs
-          .where((doc) => doc.data()['status'] == TaskStatus.completed.toString().split('.').last)
-          .length;
-      final pendingTasks = processingTasks.docs
-          .where((doc) => doc.data()['status'] == TaskStatus.pending.toString().split('.').last)
-          .length;
-
-      // Category distribution
-      final categoryDistribution = <String, int>{};
-      for (final doc in inventory.docs) {
-        final category = doc.data()['fabricCategory'] ?? 'unknown';
-        categoryDistribution[category] = (categoryDistribution[category] ?? 0) + 1;
-      }
-
-      // Quality grade distribution
-      final qualityDistribution = <String, int>{};
-      for (final doc in inventory.docs) {
-        final grade = doc.data()['qualityGrade'] ?? 'unknown';
-        qualityDistribution[grade] = (qualityDistribution[grade] ?? 0) + 1;
-      }
-
-      return WarehouseAnalyticsModel(
-        totalInventory: totalInventory,
-        processingInventory: processingInventory,
-        readyInventory: readyInventory,
-        totalWeight: totalWeight,
-        totalTasks: totalTasks,
-        completedTasks: completedTasks,
-        pendingTasks: pendingTasks,
-        categoryDistribution: categoryDistribution,
-        qualityDistribution: qualityDistribution,
-        taskCompletionRate: totalTasks > 0 ? (completedTasks / totalTasks) * 100 : 0,
-      );
-    } catch (e) {
-      throw Exception('Failed to get warehouse analytics: $e');
-    }
-  }
-
-  // ==================== BATCH OPERATIONS ====================
-
-  Future<void> processBatch(List<String> itemIds, Map<String, dynamic> processingData) async {
-    try {
-      final batch = _firestore.batch();
-      
-      for (final itemId in itemIds) {
-        final itemRef = _firestore.collection('inventory').doc(itemId);
-        batch.update(itemRef, {
-          'status': InventoryStatus.processing.toString().split('.').last,
-          'processingData': processingData,
-          'updatedAt': DateTime.now().toIso8601String(),
-        });
-      }
-      
-      await batch.commit();
-    } catch (e) {
-      throw Exception('Failed to process batch: $e');
-    }
-  }
-
-  Future<void> moveToReady(List<String> itemIds) async {
-    try {
-      final batch = _firestore.batch();
-      
-      for (final itemId in itemIds) {
-        final itemRef = _firestore.collection('inventory').doc(itemId);
-        batch.update(itemRef, {
-          'status': InventoryStatus.ready.toString().split('.').last,
-          'processedDate': DateTime.now().toIso8601String(),
-          'updatedAt': DateTime.now().toIso8601String(),
-        });
-      }
-      
-      await batch.commit();
-    } catch (e) {
-      throw Exception('Failed to move items to ready: $e');
-    }
-  }
-
-  // ==================== INTEGRATION WITH LOGISTICS ====================
-
-  Future<void> notifyLogisticsOfReadyItems(String warehouseId, List<String> itemIds) async {
-    try {
-      final batch = _firestore.batch();
-      
-      for (final itemId in itemIds) {
-        final notificationRef = _firestore.collection('logisticsNotifications').doc();
-        batch.set(notificationRef, {
-          'warehouseId': warehouseId,
-          'itemId': itemId,
-          'type': 'ready_for_pickup',
-          'status': 'pending',
-          'createdAt': DateTime.now().toIso8601String(),
-        });
-      }
-      
-      await batch.commit();
-    } catch (e) {
-      throw Exception('Failed to notify logistics: $e');
-    }
-  }
-
-  Future<List<Map<String, dynamic>>> getLogisticsNotifications(String warehouseId) async {
-    try {
-      final snapshot = await _firestore
-          .collection('logisticsNotifications')
-          .where('warehouseId', isEqualTo: warehouseId)
-          .where('status', isEqualTo: 'pending')
-          .get();
-      
-      return snapshot.docs
-          .map((doc) => {
-                ...doc.data() as Map<String, dynamic>,
-                'id': doc.id,
-              })
-          .toList();
-    } catch (e) {
-      throw Exception('Failed to get logistics notifications: $e');
-    }
-  }
-
-  // ==================== ADMIN INTEGRATION ====================
-
-  Future<Map<String, dynamic>> getAdminDashboardData(String warehouseId) async {
-    try {
-      final analytics = await getWarehouseAnalytics(warehouseId);
-      final workers = await getWorkers(warehouseId: warehouseId).first;
-      final locations = await getLocations(warehouseId: warehouseId).first;
-      final lowStockAlerts = await getLowStockAlerts(warehouseId);
-      
-      return {
-        'analytics': analytics.toJson(),
-        'workerCount': workers.length,
-        'activeWorkers': workers.where((w) => w.isActive).length,
-        'locationCount': locations.length,
-        'availableLocations': locations.where((l) => l.isAvailable).length,
-        'lowStockAlerts': lowStockAlerts.length,
-        'lastUpdated': DateTime.now().toIso8601String(),
       };
+
+      // Add specific time fields based on status
+      switch (status) {
+        case WarehouseAssignmentStatus.arrived:
+          updates['actualArrivalTime'] = DateTime.now().toIso8601String();
+          break;
+        case WarehouseAssignmentStatus.processing:
+          // No specific time field for processing
+          break;
+        case WarehouseAssignmentStatus.completed:
+          // No specific time field for completed
+          break;
+        case WarehouseAssignmentStatus.cancelled:
+          // No specific time field for cancelled
+          break;
+        case WarehouseAssignmentStatus.scheduled:
+          // No specific time field for scheduled
+          break;
+        case WarehouseAssignmentStatus.inTransit:
+          // No specific time field for inTransit
+          break;
+      }
+
+      await _firestore.collection('warehouseAssignments').doc(assignmentId).update(updates);
     } catch (e) {
-      throw Exception('Failed to get admin dashboard data: $e');
+      throw Exception('Failed to update assignment status: $e');
     }
   }
 
-  Future<void> sendAdminAlert(String warehouseId, String alertType, String message) async {
+  Future<void> markAssignmentArrived(String assignmentId, DateTime arrivalTime) async {
     try {
-      await _firestore.collection('adminAlerts').add({
-        'warehouseId': warehouseId,
-        'alertType': alertType,
-        'message': message,
-        'status': 'unread',
-        'createdAt': DateTime.now().toIso8601String(),
+      await _firestore.collection('warehouseAssignments').doc(assignmentId).update({
+        'status': WarehouseAssignmentStatus.arrived.toString().split('.').last,
+        'actualArrivalTime': arrivalTime.toIso8601String(),
+        'updatedAt': DateTime.now().toIso8601String(),
       });
     } catch (e) {
-      throw Exception('Failed to send admin alert: $e');
+      throw Exception('Failed to mark assignment as arrived: $e');
     }
+  }
+
+  Future<void> addAssignmentNotes(String assignmentId, String notes) async {
+    try {
+      await _firestore.collection('warehouseAssignments').doc(assignmentId).update({
+        'notes': notes,
+        'updatedAt': DateTime.now().toIso8601String(),
+      });
+    } catch (e) {
+      throw Exception('Failed to add assignment notes: $e');
+    }
+  }
+
+  Future<void> updateAssignmentSection(String assignmentId, WarehouseSection section) async {
+    try {
+      await _firestore.collection('warehouseAssignments').doc(assignmentId).update({
+        'warehouseSection': section.toString().split('.').last,
+        'updatedAt': DateTime.now().toIso8601String(),
+      });
+    } catch (e) {
+      throw Exception('Failed to update assignment section: $e');
+    }
+  }
+
+  // ==================== WAREHOUSE DETAILS ====================
+
+  Future<Map<String, dynamic>?> getWarehouseDetails(String warehouseId) async {
+    try {
+      print('🏭 [WAREHOUSE_REPO] Fetching warehouse details for ID: $warehouseId');
+      final doc = await _firestore.collection('warehouses').doc(warehouseId).get();
+      if (doc.exists) {
+        final data = doc.data() as Map<String, dynamic>;
+        print('🏭 [WAREHOUSE_REPO] Found warehouse: ${data['name']}');
+        return {
+          ...data,
+          'id': doc.id,
+        };
+      }
+      print('🏭 [WAREHOUSE_REPO] Warehouse not found: $warehouseId');
+      return null;
+    } catch (e) {
+      print('🏭 [WAREHOUSE_REPO] Error fetching warehouse details: $e');
+      throw Exception('Failed to get warehouse details: $e');
+    }
+  }
+
+  Future<List<Map<String, dynamic>>> getAvailableWarehouses() async {
+    try {
+      print('🏭 [WAREHOUSE_REPO] Fetching available warehouses');
+      
+      // Try to get active warehouses first
+      final snapshot = await _firestore
+          .collection('warehouses')
+          .where('is_active', isEqualTo: true)
+          .get();
+      
+      if (snapshot.docs.isNotEmpty) {
+        print('🏭 [WAREHOUSE_REPO] Found ${snapshot.docs.length} active warehouses');
+        return snapshot.docs.map((doc) {
+          final data = doc.data() as Map<String, dynamic>;
+          return {
+            ...data,
+            'id': doc.id,
+          };
+        }).toList();
+      }
+      
+      // Fallback: get all warehouses if no active ones found
+      print('🏭 [WAREHOUSE_REPO] No active warehouses found, fetching all warehouses');
+      final allSnapshot = await _firestore.collection('warehouses').get();
+      print('🏭 [WAREHOUSE_REPO] Found ${allSnapshot.docs.length} total warehouses');
+      
+      return allSnapshot.docs.map((doc) {
+        final data = doc.data() as Map<String, dynamic>;
+        return {
+          ...data,
+          'id': doc.id,
+        };
+      }).toList();
+    } catch (e) {
+      print('🏭 [WAREHOUSE_REPO] Error fetching available warehouses: $e');
+      throw Exception('Failed to get available warehouses: $e');
+    }
+  }
+
+  Stream<List<Map<String, dynamic>>> getLogisticsAssignmentsStream(String warehouseId) {
+    print('🏭 [WAREHOUSE_REPO] Setting up logistics assignments stream for warehouse: $warehouseId');
+    
+    return _firestore
+        .collection('logisticsAssignments')
+        .where('assigned_warehouse_id', isEqualTo: warehouseId)
+        .orderBy('created_at', descending: true)
+        .snapshots()
+        .map((snapshot) {
+          print('🏭 [WAREHOUSE_REPO] Found ${snapshot.docs.length} logistics assignments for warehouse: $warehouseId');
+          
+          return snapshot.docs.map((doc) {
+            final data = doc.data() as Map<String, dynamic>;
+            return {
+              ...data,
+              'id': doc.id,
+            };
+          }).toList();
+        });
   }
 } 

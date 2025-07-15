@@ -1,255 +1,186 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
 import '../data/repositories/admin_repository.dart';
-import '../data/models/analytics_model.dart';
-import '../data/models/system_config_model.dart';
 import '../../auth/data/models/user_model.dart';
+import '../../auth/data/repositories/auth_repository.dart';
 
-// Repository Provider
+import '../data/models/notification_model.dart';
+
 final adminRepositoryProvider = Provider<AdminRepository>((ref) {
   return AdminRepository();
 });
 
-// Analytics Providers
-final systemAnalyticsProvider = FutureProvider<AnalyticsModel>((ref) async {
+final pickupRequestsProvider = FutureProvider<List<Map<String, dynamic>>>((ref) async {
   final repository = ref.read(adminRepositoryProvider);
-  return await repository.getSystemAnalytics();
+  return await repository.getAllPickupRequests();
 });
 
-final analyticsStreamProvider = StreamProvider<AnalyticsModel>((ref) {
+final assignmentsProvider = FutureProvider<List<Map<String, dynamic>>>((ref) async {
   final repository = ref.read(adminRepositoryProvider);
-  // Create a stream that refreshes analytics every 30 seconds
-  return Stream.periodic(const Duration(seconds: 30), (_) => null)
-      .asyncMap((_) => repository.getSystemAnalytics());
+  return await repository.getAllAssignments();
 });
 
-// User Management Providers
-final allUsersProvider = StreamProvider<List<UserModel>>((ref) {
+// Stream providers for real-time updates
+final pickupRequestsStreamProvider = StreamProvider<List<Map<String, dynamic>>>((ref) {
   final repository = ref.read(adminRepositoryProvider);
-  return repository.getAllUsers();
+  return repository.getAllPickupRequestsStream();
 });
 
-final usersByRoleProvider = StreamProvider.family<List<UserModel>, String>((ref, role) {
+final assignmentsStreamProvider = StreamProvider<List<Map<String, dynamic>>>((ref) {
   final repository = ref.read(adminRepositoryProvider);
-  return repository.getUsersByRole(role);
+  return repository.getAllAssignmentsStream();
 });
 
-final userProvider = FutureProvider.family<UserModel?, String>((ref, userId) async {
+// Status update providers
+final updatePickupStatusProvider = FutureProvider.family<bool, Map<String, String>>((ref, params) async {
+  final repository = ref.read(adminRepositoryProvider);
+  final requestId = params['requestId']!;
+  final status = params['status']!;
+  return await repository.updatePickupRequestStatus(requestId, status);
+});
+
+final updateAssignmentStatusProvider = FutureProvider.family<bool, Map<String, String>>((ref, params) async {
+  final repository = ref.read(adminRepositoryProvider);
+  final assignmentId = params['assignmentId']!;
+  final status = params['status']!;
+  return await repository.updateAssignmentStatus(assignmentId, status);
+});
+
+// User provider
+final userProvider = FutureProvider.family<Map<String, dynamic>?, String>((ref, userId) async {
   final repository = ref.read(adminRepositoryProvider);
   return await repository.getUser(userId);
 });
 
-// System Configuration Providers
-final systemConfigProvider = FutureProvider<SystemConfigModel>((ref) async {
+final searchPickupRequestsProvider = FutureProvider.family<List<Map<String, dynamic>>, String>((ref, query) async {
   final repository = ref.read(adminRepositoryProvider);
-  return await repository.getSystemConfig();
+  return await repository.searchPickupRequests(query);
 });
 
-final systemConfigStreamProvider = StreamProvider<SystemConfigModel>((ref) {
+final searchAssignmentsProvider = FutureProvider.family<List<Map<String, dynamic>>, String>((ref, query) async {
   final repository = ref.read(adminRepositoryProvider);
-  // Listen to system config changes
-  return FirebaseFirestore.instance
-      .collection('systemConfig')
-      .doc('main')
-      .snapshots()
-      .map((doc) => doc.exists 
-          ? SystemConfigModel.fromJson(doc.data()!) 
-          : SystemConfigModel.defaultConfig());
+  return await repository.searchAssignments(query);
 });
 
-// Admin State Provider
-class AdminState {
-  final bool isLoading;
-  final String? error;
-  final AnalyticsModel? analytics;
-  final SystemConfigModel? systemConfig;
-  final List<UserModel> users;
-  final Map<String, dynamic>? currentReport;
+// Warehouse user management providers
+final warehouseUsersProvider = StreamProvider<List<UserModel>>((ref) {
+  final repository = ref.read(adminRepositoryProvider);
+  return repository.getWarehouseUsers();
+});
 
-  AdminState({
-    this.isLoading = false,
-    this.error,
-    this.analytics,
-    this.systemConfig,
-    this.users = const [],
-    this.currentReport,
-  });
+final createWarehouseUserProvider = FutureProvider.family<bool, Map<String, dynamic>>((ref, userData) async {
+  final repository = ref.read(adminRepositoryProvider);
+  return await repository.createWarehouseUser(userData);
+});
 
-  AdminState copyWith({
-    bool? isLoading,
-    String? error,
-    AnalyticsModel? analytics,
-    SystemConfigModel? systemConfig,
-    List<UserModel>? users,
-    Map<String, dynamic>? currentReport,
-  }) {
-    return AdminState(
-      isLoading: isLoading ?? this.isLoading,
-      error: error ?? this.error,
-      analytics: analytics ?? this.analytics,
-      systemConfig: systemConfig ?? this.systemConfig,
-      users: users ?? this.users,
-      currentReport: currentReport ?? this.currentReport,
-    );
-  }
-}
+final updateWarehouseUserProvider = FutureProvider.family<bool, Map<String, dynamic>>((ref, userData) async {
+  final repository = ref.read(adminRepositoryProvider);
+  return await repository.updateWarehouseUser(userData['id'], userData);
+});
 
-class AdminNotifier extends StateNotifier<AdminState> {
+final activateWarehouseUserProvider = FutureProvider.family<bool, String>((ref, userId) async {
+  final repository = ref.read(adminRepositoryProvider);
+  return await repository.activateWarehouseUser(userId);
+});
+
+final deactivateWarehouseUserProvider = FutureProvider.family<bool, String>((ref, userId) async {
+  final repository = ref.read(adminRepositoryProvider);
+  return await repository.deactivateWarehouseUser(userId);
+});
+
+// Warehouse management providers
+final allWarehousesProvider = FutureProvider<List<Map<String, dynamic>>>((ref) async {
+  final repository = ref.read(adminRepositoryProvider);
+  return await repository.getAllWarehouses();
+});
+
+final createWarehouseProvider = FutureProvider.family<bool, Map<String, dynamic>>((ref, warehouseData) async {
+  final repository = ref.read(adminRepositoryProvider);
+  return await repository.createWarehouse(warehouseData);
+});
+
+final updateWarehouseProvider = FutureProvider.family<bool, Map<String, dynamic>>((ref, warehouseData) async {
+  final repository = ref.read(adminRepositoryProvider);
+  return await repository.updateWarehouse(warehouseData['id'], warehouseData);
+});
+
+final deleteWarehouseProvider = FutureProvider.family<bool, String>((ref, warehouseId) async {
+  final repository = ref.read(adminRepositoryProvider);
+  return await repository.deleteWarehouse(warehouseId);
+});
+
+// Notifications providers
+final allNotificationsProvider = FutureProvider<List<NotificationModel>>((ref) async {
+  final repository = ref.read(adminRepositoryProvider);
+  return await repository.getAllNotifications();
+});
+
+final markNotificationAsReadProvider = FutureProvider.family<bool, String>((ref, notificationId) async {
+  final repository = ref.read(adminRepositoryProvider);
+  return await repository.markNotificationAsRead(notificationId);
+});
+
+final deleteNotificationProvider = FutureProvider.family<bool, String>((ref, notificationId) async {
+  final repository = ref.read(adminRepositoryProvider);
+  return await repository.deleteNotification(notificationId);
+});
+
+// System health provider
+final systemHealthProvider = FutureProvider<Map<String, dynamic>>((ref) async {
+  final repository = ref.read(adminRepositoryProvider);
+  return await repository.getSystemHealth();
+});
+
+// Products providers
+final allProductsProvider = StreamProvider<List<Map<String, dynamic>>>((ref) {
+  final repository = ref.read(adminRepositoryProvider);
+  return repository.getAllProducts();
+});
+
+// Orders providers
+final allOrdersProvider = StreamProvider<List<Map<String, dynamic>>>((ref) {
+  final repository = ref.read(adminRepositoryProvider);
+  return repository.getAllOrders();
+});
+
+class AdminNotifier extends StateNotifier<AsyncValue<void>> {
   final AdminRepository _repository;
 
-  AdminNotifier(this._repository) : super(AdminState());
+  AdminNotifier(this._repository) : super(const AsyncValue.data(null));
 
-  // Load Analytics
-  Future<void> loadAnalytics() async {
-    state = state.copyWith(isLoading: true, error: null);
+  Future<bool> updatePickupRequestStatus(String requestId, String status) async {
+    state = const AsyncValue.loading();
     try {
-      final analytics = await _repository.getSystemAnalytics();
-      state = state.copyWith(analytics: analytics, isLoading: false);
-    } catch (e) {
-      state = state.copyWith(error: e.toString(), isLoading: false);
+      final success = await _repository.updatePickupRequestStatus(requestId, status);
+      if (success) {
+        state = const AsyncValue.data(null);
+      } else {
+        state = const AsyncValue.error('Failed to update pickup request status', StackTrace.empty);
+      }
+      return success;
+    } catch (e, stackTrace) {
+      state = AsyncValue.error(e, stackTrace);
+      return false;
     }
   }
 
-  // Load System Config
-  Future<void> loadSystemConfig() async {
-    state = state.copyWith(isLoading: true, error: null);
+  Future<bool> updateAssignmentStatus(String assignmentId, String status) async {
+    state = const AsyncValue.loading();
     try {
-      final config = await _repository.getSystemConfig();
-      state = state.copyWith(systemConfig: config, isLoading: false);
-    } catch (e) {
-      state = state.copyWith(error: e.toString(), isLoading: false);
+      final success = await _repository.updateAssignmentStatus(assignmentId, status);
+      if (success) {
+        state = const AsyncValue.data(null);
+      } else {
+        state = const AsyncValue.error('Failed to update assignment status', StackTrace.empty);
+      }
+      return success;
+    } catch (e, stackTrace) {
+      state = AsyncValue.error(e, stackTrace);
+      return false;
     }
-  }
-
-  // Update System Config
-  Future<void> updateSystemConfig(SystemConfigModel config) async {
-    state = state.copyWith(isLoading: true, error: null);
-    try {
-      await _repository.updateSystemConfig(config);
-      state = state.copyWith(systemConfig: config, isLoading: false);
-    } catch (e) {
-      state = state.copyWith(error: e.toString(), isLoading: false);
-    }
-  }
-
-  // User Management
-  Future<void> updateUser(String userId, Map<String, dynamic> updates) async {
-    state = state.copyWith(isLoading: true, error: null);
-    try {
-      await _repository.updateUser(userId, updates);
-      state = state.copyWith(isLoading: false);
-    } catch (e) {
-      state = state.copyWith(error: e.toString(), isLoading: false);
-    }
-  }
-
-  Future<void> deactivateUser(String userId) async {
-    state = state.copyWith(isLoading: true, error: null);
-    try {
-      await _repository.deactivateUser(userId);
-      state = state.copyWith(isLoading: false);
-    } catch (e) {
-      state = state.copyWith(error: e.toString(), isLoading: false);
-    }
-  }
-
-  Future<void> activateUser(String userId) async {
-    state = state.copyWith(isLoading: true, error: null);
-    try {
-      await _repository.activateUser(userId);
-      state = state.copyWith(isLoading: false);
-    } catch (e) {
-      state = state.copyWith(error: e.toString(), isLoading: false);
-    }
-  }
-
-  Future<void> deleteUser(String userId) async {
-    state = state.copyWith(isLoading: true, error: null);
-    try {
-      await _repository.deleteUser(userId);
-      state = state.copyWith(isLoading: false);
-    } catch (e) {
-      state = state.copyWith(error: e.toString(), isLoading: false);
-    }
-  }
-
-  // Notifications
-  Future<void> sendSystemNotification({
-    required String title,
-    required String message,
-    required List<String> targetRoles,
-    String? targetUserId,
-  }) async {
-    state = state.copyWith(isLoading: true, error: null);
-    try {
-      await _repository.sendSystemNotification(
-        title: title,
-        message: message,
-        targetRoles: targetRoles,
-        targetUserId: targetUserId,
-      );
-      state = state.copyWith(isLoading: false);
-    } catch (e) {
-      state = state.copyWith(error: e.toString(), isLoading: false);
-    }
-  }
-
-  // Reports
-  Future<void> generateReport({
-    required String reportType,
-    required DateTime startDate,
-    required DateTime endDate,
-  }) async {
-    state = state.copyWith(isLoading: true, error: null);
-    try {
-      final report = await _repository.generateReport(
-        reportType: reportType,
-        startDate: startDate,
-        endDate: endDate,
-      );
-      state = state.copyWith(currentReport: report, isLoading: false);
-    } catch (e) {
-      state = state.copyWith(error: e.toString(), isLoading: false);
-    }
-  }
-
-  // Clear Error
-  void clearError() {
-    state = state.copyWith(error: null);
-  }
-
-  // Clear Report
-  void clearReport() {
-    state = state.copyWith(currentReport: null);
   }
 }
 
-final adminProvider = StateNotifierProvider<AdminNotifier, AdminState>((ref) {
+final adminNotifierProvider = StateNotifierProvider<AdminNotifier, AsyncValue<void>>((ref) {
   final repository = ref.read(adminRepositoryProvider);
   return AdminNotifier(repository);
-});
-
-// Convenience Providers
-final adminAnalyticsProvider = Provider<AnalyticsModel?>((ref) {
-  return ref.watch(adminProvider).analytics;
-});
-
-final adminSystemConfigProvider = Provider<SystemConfigModel?>((ref) {
-  return ref.watch(adminProvider).systemConfig;
-});
-
-final adminUsersProvider = Provider<List<UserModel>>((ref) {
-  return ref.watch(adminProvider).users;
-});
-
-final adminCurrentReportProvider = Provider<Map<String, dynamic>?>((ref) {
-  return ref.watch(adminProvider).currentReport;
-});
-
-final adminIsLoadingProvider = Provider<bool>((ref) {
-  return ref.watch(adminProvider).isLoading;
-});
-
-final adminErrorProvider = Provider<String?>((ref) {
-  return ref.watch(adminProvider).error;
 }); 

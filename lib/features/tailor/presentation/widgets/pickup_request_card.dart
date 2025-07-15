@@ -1,10 +1,14 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../../logistics/data/models/logistics_assignment_model.dart';
+import '../pages/tailor_dashboard.dart';
 
-class PickupRequestCard extends StatelessWidget {
+class PickupRequestCard extends ConsumerWidget {
   final String fabricType;
   final double weight;
   final String status;
   final DateTime date;
+  final String pickupRequestId;
   final VoidCallback onTap;
 
   const PickupRequestCard({
@@ -13,12 +17,16 @@ class PickupRequestCard extends StatelessWidget {
     required this.weight,
     required this.status,
     required this.date,
+    required this.pickupRequestId,
     required this.onTap,
   });
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     Color statusColor = _getStatusColor(status);
+    
+    // Get logistics assignment details
+    final logisticsAssignmentAsync = ref.watch(logisticsAssignmentForPickupProvider(pickupRequestId));
     
     return Card(
       margin: const EdgeInsets.only(bottom: 12),
@@ -73,6 +81,90 @@ class PickupRequestCard extends StatelessWidget {
                     style: Theme.of(context).textTheme.bodyMedium,
                   ),
                 ],
+              ),
+              
+              // Logistics Assignment Details
+              logisticsAssignmentAsync.when(
+                data: (assignment) {
+                  if (assignment != null) {
+                    return Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const SizedBox(height: 12),
+                        Container(
+                          padding: const EdgeInsets.all(8),
+                          decoration: BoxDecoration(
+                            color: Colors.blue.withOpacity(0.1),
+                            borderRadius: BorderRadius.circular(8),
+                            border: Border.all(color: Colors.blue.withOpacity(0.3)),
+                          ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Row(
+                                children: [
+                                  Icon(Icons.local_shipping, size: 16, color: Colors.blue[700]),
+                                  const SizedBox(width: 4),
+                                  Text(
+                                    'Logistics Assigned',
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.bold,
+                                      color: Colors.blue[700],
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 4),
+                              Text(
+                                'Status: ${assignment.statusDisplayName}',
+                                style: const TextStyle(fontSize: 11, color: Colors.grey),
+                              ),
+                              if (assignment.assignedWarehouseName != null) ...[
+                                const SizedBox(height: 2),
+                                Text(
+                                  'Warehouse: ${assignment.assignedWarehouseName}',
+                                  style: const TextStyle(fontSize: 11, color: Colors.grey),
+                                ),
+                              ],
+                            ],
+                          ),
+                        ),
+                      ],
+                    );
+                  } else {
+                    return Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const SizedBox(height: 12),
+                        Container(
+                          padding: const EdgeInsets.all(8),
+                          decoration: BoxDecoration(
+                            color: Colors.orange.withOpacity(0.1),
+                            borderRadius: BorderRadius.circular(8),
+                            border: Border.all(color: Colors.orange.withOpacity(0.3)),
+                          ),
+                          child: Row(
+                            children: [
+                              Icon(Icons.schedule, size: 16, color: Colors.orange[700]),
+                              const SizedBox(width: 4),
+                              Text(
+                                'Awaiting Logistics Assignment',
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.orange[700],
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    );
+                  }
+                },
+                loading: () => const SizedBox(height: 12),
+                error: (error, stack) => const SizedBox(height: 12),
               ),
             ],
           ),

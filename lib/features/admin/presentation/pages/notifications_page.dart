@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../providers/admin_provider.dart';
-import '../data/models/notification_model.dart';
+import '../../providers/admin_provider.dart';
+import '../../data/models/notification_model.dart';
 
 class NotificationsPage extends ConsumerStatefulWidget {
   const NotificationsPage({super.key});
@@ -61,11 +61,20 @@ class _NotificationsPageState extends ConsumerState<NotificationsPage> {
     return Card(
       child: Padding(
         padding: const EdgeInsets.all(16),
-        child: DropdownButtonFormField<String>(
-          decoration: const InputDecoration(labelText: 'Type', border: OutlineInputBorder()),
-          value: _selectedType,
-          items: ['All', 'system', 'pickup', 'order', 'general'].map((type) => DropdownMenuItem(value: type, child: Text(type.toUpperCase()))).toList(),
-          onChanged: (value) => setState(() => _selectedType = value!),
+        child: SizedBox(
+          width: 100,
+          child: DropdownButtonFormField<String>(
+            decoration: const InputDecoration(
+              labelText: 'Type',
+              border: OutlineInputBorder(),
+              isDense: true,
+              contentPadding: EdgeInsets.symmetric(vertical: 8, horizontal: 8),
+            ),
+            value: _selectedType,
+            items: ['All', 'system', 'pickup', 'order', 'general'].map((type) => DropdownMenuItem(value: type, child: Text(type.toUpperCase(), style: const TextStyle(fontSize: 11)))).toList(),
+            onChanged: (value) => setState(() => _selectedType = value!),
+            style: const TextStyle(fontSize: 11),
+          ),
         ),
       ),
     );
@@ -92,7 +101,7 @@ class _NotificationsPageState extends ConsumerState<NotificationsPage> {
               children: [
                 Icon(Icons.access_time, size: 12, color: Colors.grey[600]),
                 const SizedBox(width: 4),
-                Text(notification.timeAgo, style: TextStyle(fontSize: 12, color: Colors.grey[600])),
+                Text(_formatTimeAgo(notification.createdAt), style: TextStyle(fontSize: 12, color: Colors.grey[600])),
                 const SizedBox(width: 16),
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
@@ -186,5 +195,20 @@ class _NotificationsPageState extends ConsumerState<NotificationsPage> {
         ],
       ),
     );
+  }
+
+  String _formatTimeAgo(DateTime dateTime) {
+    final now = DateTime.now();
+    final difference = now.difference(dateTime);
+    
+    if (difference.inDays > 0) {
+      return '${difference.inDays} day${difference.inDays == 1 ? '' : 's'} ago';
+    } else if (difference.inHours > 0) {
+      return '${difference.inHours} hour${difference.inHours == 1 ? '' : 's'} ago';
+    } else if (difference.inMinutes > 0) {
+      return '${difference.inMinutes} minute${difference.inMinutes == 1 ? '' : 's'} ago';
+    } else {
+      return 'Just now';
+    }
   }
 } 

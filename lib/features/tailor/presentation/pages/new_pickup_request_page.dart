@@ -6,7 +6,6 @@ import 'package:uuid/uuid.dart';
 import '../../../auth/data/models/user_model.dart';
 import '../../../../core/services/location_service.dart';
 import '../../data/models/pickup_request_model.dart';
-import '../../data/repositories/tailor_repository.dart';
 import '../../providers/tailor_provider.dart';
 
 class NewPickupRequestPage extends ConsumerStatefulWidget {

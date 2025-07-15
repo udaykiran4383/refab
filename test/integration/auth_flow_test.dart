@@ -12,8 +12,11 @@ import 'package:refab_app/features/warehouse/presentation/pages/warehouse_dashbo
 import 'package:refab_app/features/volunteer/presentation/pages/volunteer_dashboard.dart';
 import 'package:refab_app/features/admin/presentation/pages/admin_dashboard.dart';
 import '../test_helper.dart';
+import 'package:firebase_core/firebase_core.dart';
 
-void main() {
+void main() async {
+  TestWidgetsFlutterBinding.ensureInitialized();
+  await Firebase.initializeApp();
   setUpAll(() async {
     await TestHelper.setupFirebaseForTesting();
   });

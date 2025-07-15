@@ -10,8 +10,11 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:refab_app/app/app.dart';
 import 'test_helper.dart';
+import 'package:firebase_core/firebase_core.dart';
 
-void main() {
+void main() async {
+  TestWidgetsFlutterBinding.ensureInitialized();
+  await Firebase.initializeApp();
   group('ReFab app smoke test', () {
     setUpAll(() async {
       await TestHelper.setupFirebaseForTesting();

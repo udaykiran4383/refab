@@ -21,7 +21,23 @@ class DashboardPage extends ConsumerWidget {
         }
         print('🏠 [DASHBOARD] ✅ User found: ${user.name} (${user.email})');
         print('🏠 [DASHBOARD] 🎭 User role: ${user.role}');
-        return RoleDashboard(user: user);
+        print('🏠 [DASHBOARD] 📋 User details: ${user.toJson()}');
+        
+        // Add a debug banner for development
+        return Scaffold(
+          appBar: AppBar(
+            title: Text('Dashboard - ${user.role.toString().split('.').last}'),
+            backgroundColor: Colors.green,
+            foregroundColor: Colors.white,
+            actions: [
+              IconButton(
+                icon: const Icon(Icons.info),
+                onPressed: () => _showDebugInfo(context, user),
+              ),
+            ],
+          ),
+          body: RoleDashboard(user: user),
+        );
       },
       loading: () {
         print('🏠 [DASHBOARD] 🔄 Loading auth state...');
@@ -35,6 +51,37 @@ class DashboardPage extends ConsumerWidget {
           body: Center(child: Text('Error: $error')),
         );
       },
+    );
+  }
+  
+  void _showDebugInfo(BuildContext context, user) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Debug Information'),
+        content: SingleChildScrollView(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text('Name: ${user.name}'),
+              Text('Email: ${user.email}'),
+              Text('Role: ${user.role}'),
+              Text('Phone: ${user.phone}'),
+              Text('ID: ${user.id}'),
+              const SizedBox(height: 16),
+              const Text('User JSON:', style: TextStyle(fontWeight: FontWeight.bold)),
+              Text(user.toJson().toString()),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Close'),
+          ),
+        ],
+      ),
     );
   }
 }

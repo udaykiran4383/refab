@@ -43,6 +43,8 @@ class LogisticsOverviewCard extends StatelessWidget {
                       style: Theme.of(context).textTheme.titleMedium?.copyWith(
                         fontWeight: FontWeight.bold,
                       ),
+                      overflow: TextOverflow.ellipsis,
+                      maxLines: 1,
                     ),
                   ),
                   const SizedBox(width: 8),
@@ -61,6 +63,7 @@ class LogisticsOverviewCard extends StatelessWidget {
                           fontSize: 12,
                         ),
                         overflow: TextOverflow.ellipsis,
+                        maxLines: 1,
                       ),
                     ),
                   ),
@@ -69,81 +72,146 @@ class LogisticsOverviewCard extends StatelessWidget {
               const SizedBox(height: 16),
 
               // Key Metrics
-              Row(
-                children: [
-                  Expanded(
-                    child: _buildMetricItem(
-                      'Total',
-                      totalAssignments.toString(),
-                      Icons.assignment,
-                      Colors.blue,
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: _buildMetricItem(
-                      'Active',
-                      activeAssignments.toString(),
-                      Icons.pending_actions,
-                      Colors.orange,
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: _buildMetricItem(
-                      'Completed',
-                      completedAssignments.toString(),
-                      Icons.check_circle,
-                      Colors.green,
-                    ),
-                  ),
-                ],
+              LayoutBuilder(
+                builder: (context, constraints) {
+                  return Wrap(
+                    spacing: 12,
+                    runSpacing: 12,
+                    children: [
+                      SizedBox(
+                        width: constraints.maxWidth > 600 ? (constraints.maxWidth - 24) / 3 : constraints.maxWidth,
+                        child: _buildMetricItem(
+                          'Total',
+                          totalAssignments.toString(),
+                          Icons.assignment,
+                          Colors.blue,
+                        ),
+                      ),
+                      SizedBox(
+                        width: constraints.maxWidth > 600 ? (constraints.maxWidth - 24) / 3 : constraints.maxWidth,
+                        child: _buildMetricItem(
+                          'Active',
+                          activeAssignments.toString(),
+                          Icons.pending_actions,
+                          Colors.orange,
+                        ),
+                      ),
+                      SizedBox(
+                        width: constraints.maxWidth > 600 ? (constraints.maxWidth - 24) / 3 : constraints.maxWidth,
+                        child: _buildMetricItem(
+                          'Completed',
+                          completedAssignments.toString(),
+                          Icons.check_circle,
+                          Colors.green,
+                        ),
+                      ),
+                    ],
+                  );
+                },
               ),
               const SizedBox(height: 16),
 
               // Progress Indicators
-              Row(
-                children: [
-                  Expanded(
-                    child: _buildProgressIndicator(
-                      'Completion Rate',
-                      completionRate,
-                      Colors.green,
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: _buildProgressIndicator(
-                      'Active Rate',
-                      activeRate,
-                      Colors.blue,
-                    ),
-                  ),
-                ],
+              LayoutBuilder(
+                builder: (context, constraints) {
+                  return Wrap(
+                    spacing: 12,
+                    runSpacing: 12,
+                    children: [
+                      SizedBox(
+                        width: constraints.maxWidth > 600 ? (constraints.maxWidth - 12) / 2 : constraints.maxWidth,
+                        child: _buildProgressIndicator(
+                          'Completion Rate',
+                          completionRate,
+                          Colors.green,
+                        ),
+                      ),
+                      SizedBox(
+                        width: constraints.maxWidth > 600 ? (constraints.maxWidth - 12) / 2 : constraints.maxWidth,
+                        child: _buildProgressIndicator(
+                          'Active Rate',
+                          activeRate,
+                          Colors.blue,
+                        ),
+                      ),
+                    ],
+                  );
+                },
               ),
               const SizedBox(height: 16),
 
               // Additional Metrics
-              Row(
-                children: [
-                  Expanded(
-                    child: _buildDetailMetric(
-                      'Total Weight',
-                      '${totalWeight.toStringAsFixed(1)} kg',
-                      Icons.scale,
-                      Colors.purple,
+              LayoutBuilder(
+                builder: (context, constraints) {
+                  return Wrap(
+                    spacing: 12,
+                    runSpacing: 12,
+                    children: [
+                      SizedBox(
+                        width: constraints.maxWidth > 600 ? (constraints.maxWidth - 12) / 2 : constraints.maxWidth,
+                        child: _buildMetricItem(
+                          'Total Weight',
+                          '${totalWeight.toStringAsFixed(1)} kg',
+                          Icons.scale,
+                          Colors.purple,
+                        ),
+                      ),
+                      SizedBox(
+                        width: constraints.maxWidth > 600 ? (constraints.maxWidth - 12) / 2 : constraints.maxWidth,
+                        child: _buildMetricItem(
+                          'Avg Delivery',
+                          '${averageDeliveryTime.toStringAsFixed(1)} days',
+                          Icons.schedule,
+                          Colors.indigo,
+                        ),
+                      ),
+                    ],
+                  );
+                },
+              ),
+              const SizedBox(height: 16),
+
+              // Single Assignment Rule Info
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.blue.withOpacity(0.05),
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: Colors.blue.withOpacity(0.2)),
+                ),
+                child: Row(
+                  children: [
+                    Icon(
+                      Icons.security,
+                      color: Colors.blue,
+                      size: 20,
                     ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: _buildDetailMetric(
-                      'Avg Delivery',
-                      '${averageDeliveryTime.toStringAsFixed(1)} days',
-                      Icons.access_time,
-                      Colors.teal,
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Single Assignment Rule',
+                            style: TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.blue[700],
+                            ),
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            'Only one logistics partner can be assigned per pickup request',
+                            style: TextStyle(
+                              fontSize: 10,
+                              color: Colors.grey[600],
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
               const SizedBox(height: 16),
 

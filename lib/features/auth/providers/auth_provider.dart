@@ -11,6 +11,9 @@ final authStateProvider = StreamProvider<UserModel?>((ref) {
   print('🔐 [AUTH_STATE] Initializing auth state provider');
   final authRepository = ref.watch(authRepositoryProvider);
   
+  // Watch the refresh provider to trigger rebuilds
+  ref.watch(authRefreshProvider);
+  
   return authRepository.authStateChanges.asyncMap((firebaseUser) async {
     print('🔐 [AUTH_STATE] Firebase auth state changed: ${firebaseUser?.uid ?? 'null'}');
     print('🔐 [AUTH_STATE] Firebase user email: ${firebaseUser?.email ?? 'null'}');
@@ -75,10 +78,16 @@ final authStateProvider = StreamProvider<UserModel?>((ref) {
   });
 });
 
-final authServiceProvider = Provider<AuthService>((ref) => AuthService());
+final authServiceProvider = Provider<AuthService>((ref) => AuthService(ref));
+
+// Add a provider to refresh auth state
+final authRefreshProvider = StateProvider<int>((ref) => 0);
 
 class AuthService {
   final AuthRepository _authRepository = AuthRepository();
+  final Ref _ref;
+
+  AuthService(this._ref);
 
   Future<UserModel?> signInWithEmailAndPassword(String email, String password) async {
     print('🔐 [SIGN_IN] Attempting sign in for: $email');
@@ -150,9 +159,23 @@ class AuthService {
       // Update in Firestore
       await _authRepository.updateUserProfile(user.uid, updates);
       print('🔐 [UPDATE_PROFILE] ✅ Profile updated successfully');
+      
+      // Force refresh of auth state to reflect changes
+      await _refreshAuthState();
     } catch (e) {
       print('🔐 [UPDATE_PROFILE] ❌ Update error: $e');
       throw Exception('Failed to update profile: $e');
+    }
+  }
+
+  Future<void> _refreshAuthState() async {
+    print('🔐 [REFRESH_AUTH] Refreshing auth state...');
+    try {
+      // Increment the refresh counter to trigger a rebuild
+      _ref.read(authRefreshProvider.notifier).state++;
+      print('🔐 [REFRESH_AUTH] ✅ Auth state refresh triggered');
+    } catch (e) {
+      print('🔐 [REFRESH_AUTH] ❌ Error refreshing auth state: $e');
     }
   }
 

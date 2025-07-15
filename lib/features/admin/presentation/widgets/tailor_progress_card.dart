@@ -45,6 +45,8 @@ class TailorProgressCard extends StatelessWidget {
                       style: Theme.of(context).textTheme.titleMedium?.copyWith(
                         fontWeight: FontWeight.bold,
                       ),
+                      overflow: TextOverflow.ellipsis,
+                      maxLines: 1,
                     ),
                   ),
                   const SizedBox(width: 8),
@@ -63,6 +65,7 @@ class TailorProgressCard extends StatelessWidget {
                           fontSize: 12,
                         ),
                         overflow: TextOverflow.ellipsis,
+                        maxLines: 1,
                       ),
                     ),
                   ),
@@ -71,81 +74,102 @@ class TailorProgressCard extends StatelessWidget {
               const SizedBox(height: 16),
 
               // Tailor Metrics
-              Row(
-                children: [
-                  Expanded(
-                    child: _buildMetricItem(
-                      'Total Tailors',
-                      totalTailors.toString(),
-                      Icons.people,
-                      Colors.blue,
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: _buildMetricItem(
-                      'Active Tailors',
-                      activeTailors.toString(),
-                      Icons.person,
-                      Colors.green,
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: _buildMetricItem(
-                      'Avg Progress',
-                      '$averageWorkProgress%',
-                      Icons.trending_up,
-                      Colors.orange,
-                    ),
-                  ),
-                ],
+              LayoutBuilder(
+                builder: (context, constraints) {
+                  return Wrap(
+                    spacing: 12,
+                    runSpacing: 12,
+                    children: [
+                      SizedBox(
+                        width: constraints.maxWidth > 600 ? (constraints.maxWidth - 24) / 3 : constraints.maxWidth,
+                        child: _buildMetricItem(
+                          'Total Tailors',
+                          totalTailors.toString(),
+                          Icons.people,
+                          Colors.blue,
+                        ),
+                      ),
+                      SizedBox(
+                        width: constraints.maxWidth > 600 ? (constraints.maxWidth - 24) / 3 : constraints.maxWidth,
+                        child: _buildMetricItem(
+                          'Active Tailors',
+                          activeTailors.toString(),
+                          Icons.person,
+                          Colors.green,
+                        ),
+                      ),
+                      SizedBox(
+                        width: constraints.maxWidth > 600 ? (constraints.maxWidth - 24) / 3 : constraints.maxWidth,
+                        child: _buildMetricItem(
+                          'Avg Progress',
+                          '$averageWorkProgress%',
+                          Icons.trending_up,
+                          Colors.orange,
+                        ),
+                      ),
+                    ],
+                  );
+                },
               ),
               const SizedBox(height: 16),
 
               // Progress Indicators
-              Row(
-                children: [
-                  Expanded(
-                    child: _buildProgressIndicator(
-                      'Active Rate',
-                      activeRate,
-                      Colors.green,
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: _buildProgressIndicator(
-                      'Completion Rate',
-                      completionRate,
-                      Colors.blue,
-                    ),
-                  ),
-                ],
+              LayoutBuilder(
+                builder: (context, constraints) {
+                  return Wrap(
+                    spacing: 12,
+                    runSpacing: 12,
+                    children: [
+                      SizedBox(
+                        width: constraints.maxWidth > 600 ? (constraints.maxWidth - 12) / 2 : constraints.maxWidth,
+                        child: _buildProgressIndicator(
+                          'Active Rate',
+                          activeRate,
+                          Colors.green,
+                        ),
+                      ),
+                      SizedBox(
+                        width: constraints.maxWidth > 600 ? (constraints.maxWidth - 12) / 2 : constraints.maxWidth,
+                        child: _buildProgressIndicator(
+                          'Completion Rate',
+                          completionRate,
+                          Colors.blue,
+                        ),
+                      ),
+                    ],
+                  );
+                },
               ),
               const SizedBox(height: 16),
 
               // Request Metrics
-              Row(
-                children: [
-                  Expanded(
-                    child: _buildDetailMetric(
-                      'Pending Requests',
-                      pendingRequests.toString(),
-                      Icons.schedule,
-                      Colors.orange,
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: _buildDetailMetric(
-                      'Completed Requests',
-                      completedRequests.toString(),
-                      Icons.check_circle,
-                      Colors.green,
-                    ),
-                  ),
-                ],
+              LayoutBuilder(
+                builder: (context, constraints) {
+                  return Wrap(
+                    spacing: 12,
+                    runSpacing: 12,
+                    children: [
+                      SizedBox(
+                        width: constraints.maxWidth > 600 ? (constraints.maxWidth - 12) / 2 : constraints.maxWidth,
+                        child: _buildDetailMetric(
+                          'Pending Requests',
+                          pendingRequests.toString(),
+                          Icons.schedule,
+                          Colors.orange,
+                        ),
+                      ),
+                      SizedBox(
+                        width: constraints.maxWidth > 600 ? (constraints.maxWidth - 12) / 2 : constraints.maxWidth,
+                        child: _buildDetailMetric(
+                          'Completed Requests',
+                          completedRequests.toString(),
+                          Icons.check_circle,
+                          Colors.green,
+                        ),
+                      ),
+                    ],
+                  );
+                },
               ),
               const SizedBox(height: 16),
 

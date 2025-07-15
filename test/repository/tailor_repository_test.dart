@@ -6,7 +6,9 @@ import 'package:refab_app/features/tailor/data/models/pickup_request_model.dart'
 import 'package:refab_app/features/auth/data/models/user_model.dart';
 import '../test_helper.dart';
 
-void main() {
+void main() async {
+  TestWidgetsFlutterBinding.ensureInitialized();
+  await Firebase.initializeApp();
   setUpAll(() async {
     await TestHelper.setupFirebaseForTesting();
   });

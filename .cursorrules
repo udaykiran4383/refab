@@ -1,0 +1,29 @@
+# Cursor Performance Optimization Rules
+
+# File reading optimizations
+- Use read_file with specific line ranges when possible
+- Avoid reading entire large files unless necessary
+- Use grep_search for exact text matches instead of semantic search
+- Use file_search for finding files by name
+- Only use codebase_search when semantic understanding is needed
+
+# Directory exclusions
+- Exclude build directories, node_modules, and large generated files
+- Exclude test files and mock files unless specifically needed
+- Exclude platform-specific build artifacts
+
+# Search optimizations
+- Break complex queries into multiple simple searches
+- Target specific directories when possible
+- Use exact text matching over semantic search when appropriate
+
+# Memory management
+- Limit file reading to 250 lines at a time
+- Avoid reading entire large files
+- Use targeted searches instead of broad scans
+
+# Performance guidelines
+- Always check terminal output after running commands
+- Use specific file paths when possible
+- Avoid reading files that are excluded by .cursorignore
+- Prefer fast text-based searches over semantic searches 

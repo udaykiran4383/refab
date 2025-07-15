@@ -1,0 +1,115 @@
+# Node.js dependencies
+**/node_modules/
+**/bower_components/
+
+# Build outputs
+**/build/
+**/dist/
+**/.next/
+**/.nuxt/
+**/.cache/
+**/.dart_tool/
+**/.pub-cache/
+
+# Package manager files
+**/package-lock.json
+**/yarn.lock
+**/pnpm-lock.yaml
+**/.flutter-plugins
+**/.flutter-plugins-dependencies
+
+# Platform-specific build directories
+**/ios/Pods/
+**/android/.gradle/
+**/android/build/
+**/ios/build/
+**/macos/build/
+**/linux/build/
+**/windows/build/
+
+# Version control
+**/.git/
+**/.svn/
+**/.hg/
+**/CVS/
+
+# OS generated files
+**/.DS_Store
+**/Thumbs.db
+**/ehthumbs.db
+**/Desktop.ini
+
+# IDE files
+**/.vscode/
+**/.idea/
+**/*.swp
+**/*.swo
+**/*~
+
+# Logs and temporary files
+**/logs/
+**/*.log
+**/tmp/
+**/temp/
+**/*.tmp
+**/*.temp
+**/*.bak
+**/firebase-debug.log
+**/firestore-debug.log
+**/ui-debug.log
+**/pglite-debug.log
+
+# Coverage reports
+**/coverage/
+**/*.lcov
+
+# Environment files
+**/.env*
+
+# Large binary files
+**/*.zip
+**/*.tar.gz
+**/*.rar
+**/*.7z
+**/*.iso
+**/*.dmg
+**/*.pkg
+
+# Media files
+**/*.mp4
+**/*.avi
+**/*.mov
+**/*.wmv
+**/*.flv
+**/*.webm
+**/*.mkv
+**/*.mp3
+**/*.wav
+**/*.flac
+**/*.aac
+**/*.ogg
+
+# Flutter/Dart specific
+**/pubspec.lock
+**/.dart_tool/
+**/.pub-cache/
+**/.flutter-plugins
+**/.flutter-plugins-dependencies
+
+# Large generated files
+**/*.wasm
+**/*.map
+**/*.bundle.js
+**/*.bundle.js.map
+
+# Test artifacts
+**/test_driver/
+**/integration_test/
+**/*_test.dart
+**/*_test.mocks.dart
+
+# Firebase and deployment
+**/firebase.json
+**/firestore.rules
+**/storage.rules
+**/firestore.indexes.json 

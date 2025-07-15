@@ -32,7 +32,7 @@ class _EnhancedTailorDashboardState extends ConsumerState<EnhancedTailorDashboar
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 6, vsync: this);
+    _tabController = TabController(length: 5, vsync: this);
     _tabController.addListener(() {
       setState(() {
         _selectedIndex = _tabController.index;
@@ -64,7 +64,7 @@ class _EnhancedTailorDashboardState extends ConsumerState<EnhancedTailorDashboar
       startDate: DateTime.now().subtract(const Duration(days: 30)),
       endDate: DateTime.now(),
     )));
-    final notifications = ref.watch(tailorNotificationsProvider(widget.user.id));
+
 
     // Debug logging for pickup requests
     pickupRequests.when(
@@ -92,45 +92,6 @@ class _EnhancedTailorDashboardState extends ConsumerState<EnhancedTailorDashboar
         backgroundColor: Theme.of(context).primaryColor,
         foregroundColor: Colors.white,
         actions: [
-          // Notifications
-          Stack(
-            children: [
-              IconButton(
-                icon: const Icon(Icons.notifications),
-                onPressed: () => _showNotifications(notifications),
-              ),
-              if (notifications.maybeWhen(
-                data: (notifs) => notifs.where((n) => !n['isRead']).isNotEmpty,
-                orElse: () => false,
-              ))
-                Positioned(
-                  right: 8,
-                  top: 8,
-                  child: Container(
-                    padding: const EdgeInsets.all(2),
-                    decoration: BoxDecoration(
-                      color: Colors.red,
-                      borderRadius: BorderRadius.circular(6),
-                    ),
-                    constraints: const BoxConstraints(
-                      minWidth: 12,
-                      minHeight: 12,
-                    ),
-                    child: Text(
-                      notifications.maybeWhen(
-                        data: (notifs) => notifs.where((n) => !n['isRead']).length.toString(),
-                        orElse: () => '0',
-                      ),
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 8,
-                      ),
-                      textAlign: TextAlign.center,
-                    ),
-                  ),
-                ),
-            ],
-          ),
           // Menu
           PopupMenuButton(
             icon: const Icon(Icons.more_vert),
@@ -150,10 +111,6 @@ class _EnhancedTailorDashboardState extends ConsumerState<EnhancedTailorDashboar
               const PopupMenuItem(
                 value: 'customers',
                 child: Text('Customers'),
-              ),
-              const PopupMenuItem(
-                value: 'settings',
-                child: Text('Settings'),
               ),
               const PopupMenuItem(
                 value: 'help',
@@ -178,7 +135,6 @@ class _EnhancedTailorDashboardState extends ConsumerState<EnhancedTailorDashboar
             Tab(icon: Icon(Icons.analytics), text: 'Analytics'),
             Tab(icon: Icon(Icons.calendar_today), text: 'Schedule'),
             Tab(icon: Icon(Icons.people), text: 'Customers'),
-            Tab(icon: Icon(Icons.settings), text: 'Settings'),
           ],
         ),
       ),
@@ -190,7 +146,6 @@ class _EnhancedTailorDashboardState extends ConsumerState<EnhancedTailorDashboar
           _buildAnalyticsTab(analytics),
           _buildScheduleTab(),
           _buildCustomersTab(),
-          _buildSettingsTab(),
         ],
       ),
       floatingActionButton: _selectedIndex == 1 ? FloatingActionButton.extended(
@@ -210,7 +165,7 @@ class _EnhancedTailorDashboardState extends ConsumerState<EnhancedTailorDashboar
     );
   }
 
-  Widget _buildOverviewTab(AsyncValue<TailorState> tailorState, AsyncValue<List<PickupRequestModel>> pickupRequests, AsyncValue<TailorAnalyticsModel> analytics) {
+  Widget _buildOverviewTab(TailorState tailorState, AsyncValue<List<PickupRequestModel>> pickupRequests, AsyncValue<TailorAnalyticsModel> analytics) {
     return SingleChildScrollView(
       padding: const EdgeInsets.all(16),
       child: Column(
@@ -532,9 +487,7 @@ class _EnhancedTailorDashboardState extends ConsumerState<EnhancedTailorDashboar
     return const Center(child: Text('Customers Page - Coming Soon'));
   }
 
-  Widget _buildSettingsTab() {
-    return const Center(child: Text('Settings Page - Coming Soon'));
-  }
+
 
   Widget _buildQuickActions() {
     return Column(
@@ -566,17 +519,7 @@ class _EnhancedTailorDashboardState extends ConsumerState<EnhancedTailorDashboar
                 },
               ),
             ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: _buildQuickActionCard(
-                context,
-                'View Schedule',
-                'Check pickup schedule',
-                Icons.calendar_today,
-                Colors.blue,
-                () => _tabController.animateTo(3),
-              ),
-            ),
+
           ],
         ),
         const SizedBox(height: 12),
@@ -807,57 +750,7 @@ class _EnhancedTailorDashboardState extends ConsumerState<EnhancedTailorDashboar
     // This will be handled by the EnhancedPickupRequestCard
   }
 
-  void _showNotifications(AsyncValue<List<Map<String, dynamic>>> notifications) {
-    notifications.when(
-      data: (notifs) {
-        showDialog(
-          context: context,
-          builder: (context) => AlertDialog(
-            title: const Text('Notifications'),
-            content: SizedBox(
-              width: double.maxFinite,
-              height: 300,
-              child: notifs.isEmpty
-                  ? const Center(child: Text('No notifications'))
-                  : ListView.builder(
-                      itemCount: notifs.length,
-                      itemBuilder: (context, index) {
-                        final notification = notifs[index];
-                        return ListTile(
-                          title: Text(notification['title'] ?? ''),
-                          subtitle: Text(notification['message'] ?? ''),
-                          trailing: notification['isRead'] == false
-                              ? Container(
-                                  width: 8,
-                                  height: 8,
-                                  decoration: const BoxDecoration(
-                                    color: Colors.red,
-                                    shape: BoxShape.circle,
-                                  ),
-                                )
-                              : null,
-                          onTap: () {
-                            if (notification['isRead'] == false) {
-                              ref.read(tailorProvider.notifier).markNotificationAsRead(notification['id']);
-                            }
-                          },
-                        );
-                      },
-                    ),
-            ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(context),
-                child: const Text('Close'),
-              ),
-            ],
-          ),
-        );
-      },
-      loading: () => const Center(child: CircularProgressIndicator()),
-      error: (error, stack) => Center(child: Text('Error: $error')),
-    );
-  }
+
 
   void _handleMenuSelection(String value) {
     switch (value) {
@@ -873,14 +766,11 @@ class _EnhancedTailorDashboardState extends ConsumerState<EnhancedTailorDashboar
       case 'customers':
         _tabController.animateTo(4);
         break;
-      case 'settings':
-        _tabController.animateTo(5);
-        break;
       case 'help':
         _showHelpDialog();
         break;
       case 'logout':
-        ref.read(authStateProvider.notifier).signOut();
+        ref.read(authServiceProvider).signOut();
         break;
     }
   }
@@ -894,7 +784,11 @@ class _EnhancedTailorDashboardState extends ConsumerState<EnhancedTailorDashboar
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('Help & Support'),
-        content: const Text('Help and support features will be implemented here.'),
+        content: const Text(
+          'Please contact re fab gmail.com',
+          style: TextStyle(fontSize: 16),
+          textAlign: TextAlign.center,
+        ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),

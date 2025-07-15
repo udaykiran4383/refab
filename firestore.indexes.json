@@ -1,45 +1,131 @@
 {
   "indexes": [
     {
-      "collectionGroup": "pickupRequests",
+      "collectionGroup": "warehouseWorkers",
       "queryScope": "COLLECTION",
       "fields": [
-        {
-          "fieldPath": "tailor_id",
-          "order": "ASCENDING"
-        },
-        {
-          "fieldPath": "created_at",
-          "order": "DESCENDING"
-        }
+        { "fieldPath": "warehouseId", "order": "ASCENDING" },
+        { "fieldPath": "status", "order": "ASCENDING" },
+        { "fieldPath": "createdAt", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "warehouseWorkers",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "warehouseId", "order": "ASCENDING" },
+        { "fieldPath": "role", "order": "ASCENDING" },
+        { "fieldPath": "createdAt", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "inventory",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "warehouseId", "order": "ASCENDING" },
+        { "fieldPath": "status", "order": "ASCENDING" },
+        { "fieldPath": "createdAt", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "inventory",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "warehouseId", "order": "ASCENDING" },
+        { "fieldPath": "fabricCategory", "order": "ASCENDING" },
+        { "fieldPath": "createdAt", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "inventory",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "warehouseId", "order": "ASCENDING" },
+        { "fieldPath": "qualityGrade", "order": "ASCENDING" },
+        { "fieldPath": "createdAt", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "warehouseAssignments",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "warehouseId", "order": "ASCENDING" },
+        { "fieldPath": "createdAt", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "warehouseAssignments",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "warehouseId", "order": "ASCENDING" },
+        { "fieldPath": "scheduledArrivalTime", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "warehouseAssignments",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "warehouseId", "order": "ASCENDING" },
+        { "fieldPath": "status", "order": "ASCENDING" },
+        { "fieldPath": "scheduledArrivalTime", "order": "ASCENDING" }
       ]
     },
     {
       "collectionGroup": "pickupRequests",
       "queryScope": "COLLECTION",
       "fields": [
-        {
-          "fieldPath": "tailor_id",
-          "order": "ASCENDING"
-        },
-        {
-          "fieldPath": "status",
-          "order": "ASCENDING"
-        },
-        {
-          "fieldPath": "created_at",
-          "order": "DESCENDING"
-        }
+        { "fieldPath": "tailor_id", "order": "ASCENDING" },
+        { "fieldPath": "created_at", "order": "DESCENDING" }
       ]
     },
     {
       "collectionGroup": "pickupRequests",
       "queryScope": "COLLECTION",
       "fields": [
-        {
-          "fieldPath": "created_at",
-          "order": "DESCENDING"
-        }
+        { "fieldPath": "tailor_id", "order": "ASCENDING" },
+        { "fieldPath": "status", "order": "ASCENDING" },
+        { "fieldPath": "created_at", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "pickupRequests",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "tailor_id", "order": "ASCENDING" },
+        { "fieldPath": "status", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "pickupRequests",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "status", "order": "ASCENDING" },
+        { "fieldPath": "created_at", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "logisticsAssignments",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "logistics_id", "order": "ASCENDING" },
+        { "fieldPath": "created_at", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "logisticsAssignments",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "logistics_id", "order": "ASCENDING" },
+        { "fieldPath": "status", "order": "ASCENDING" },
+        { "fieldPath": "created_at", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "logisticsAssignments",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "status", "order": "ASCENDING" },
+        { "fieldPath": "created_at", "order": "DESCENDING" }
       ]
     }
   ],

@@ -45,6 +45,8 @@ class WarehouseStatusCard extends StatelessWidget {
                       style: Theme.of(context).textTheme.titleMedium?.copyWith(
                         fontWeight: FontWeight.bold,
                       ),
+                      overflow: TextOverflow.ellipsis,
+                      maxLines: 1,
                     ),
                   ),
                   const SizedBox(width: 8),
@@ -63,6 +65,7 @@ class WarehouseStatusCard extends StatelessWidget {
                           fontSize: 12,
                         ),
                         overflow: TextOverflow.ellipsis,
+                        maxLines: 1,
                       ),
                     ),
                   ),
@@ -71,90 +74,111 @@ class WarehouseStatusCard extends StatelessWidget {
               const SizedBox(height: 16),
 
               // Warehouse Metrics
-              Row(
-                children: [
-                  Expanded(
-                    child: _buildMetricItem(
-                      'Total Warehouses',
-                      totalWarehouses.toString(),
-                      Icons.warehouse,
-                      Colors.blue,
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: _buildMetricItem(
-                      'Active Warehouses',
-                      activeWarehouses.toString(),
-                      Icons.check_circle,
-                      Colors.green,
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: _buildMetricItem(
-                      'Utilization',
-                      '$utilizationRate%',
-                      Icons.analytics,
-                      Colors.orange,
-                    ),
-                  ),
-                ],
+              LayoutBuilder(
+                builder: (context, constraints) {
+                  return Wrap(
+                    spacing: 12,
+                    runSpacing: 12,
+                    children: [
+                      SizedBox(
+                        width: constraints.maxWidth > 600 ? (constraints.maxWidth - 24) / 3 : constraints.maxWidth,
+                        child: _buildMetricItem(
+                          'Total Warehouses',
+                          totalWarehouses.toString(),
+                          Icons.warehouse,
+                          Colors.blue,
+                        ),
+                      ),
+                      SizedBox(
+                        width: constraints.maxWidth > 600 ? (constraints.maxWidth - 24) / 3 : constraints.maxWidth,
+                        child: _buildMetricItem(
+                          'Active Warehouses',
+                          activeWarehouses.toString(),
+                          Icons.check_circle,
+                          Colors.green,
+                        ),
+                      ),
+                      SizedBox(
+                        width: constraints.maxWidth > 600 ? (constraints.maxWidth - 24) / 3 : constraints.maxWidth,
+                        child: _buildMetricItem(
+                          'Utilization',
+                          '$utilizationRate%',
+                          Icons.analytics,
+                          Colors.orange,
+                        ),
+                      ),
+                    ],
+                  );
+                },
               ),
               const SizedBox(height: 16),
 
               // Progress Indicators
-              Row(
-                children: [
-                  Expanded(
-                    child: _buildProgressIndicator(
-                      'Active Rate',
-                      activeRate,
-                      Colors.green,
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: _buildProgressIndicator(
-                      'Ready Rate',
-                      readyRate,
-                      Colors.blue,
-                    ),
-                  ),
-                ],
+              LayoutBuilder(
+                builder: (context, constraints) {
+                  return Wrap(
+                    spacing: 12,
+                    runSpacing: 12,
+                    children: [
+                      SizedBox(
+                        width: constraints.maxWidth > 600 ? (constraints.maxWidth - 12) / 2 : constraints.maxWidth,
+                        child: _buildProgressIndicator(
+                          'Active Rate',
+                          activeRate,
+                          Colors.green,
+                        ),
+                      ),
+                      SizedBox(
+                        width: constraints.maxWidth > 600 ? (constraints.maxWidth - 12) / 2 : constraints.maxWidth,
+                        child: _buildProgressIndicator(
+                          'Ready Rate',
+                          readyRate,
+                          Colors.blue,
+                        ),
+                      ),
+                    ],
+                  );
+                },
               ),
               const SizedBox(height: 16),
 
               // Inventory Metrics
-              Row(
-                children: [
-                  Expanded(
-                    child: _buildDetailMetric(
-                      'Total Inventory',
-                      totalInventory.toString(),
-                      Icons.inventory,
-                      Colors.purple,
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: _buildDetailMetric(
-                      'Processing',
-                      processingInventory.toString(),
-                      Icons.pending_actions,
-                      Colors.orange,
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: _buildDetailMetric(
-                      'Ready',
-                      readyInventory.toString(),
-                      Icons.check_circle,
-                      Colors.green,
-                    ),
-                  ),
-                ],
+              LayoutBuilder(
+                builder: (context, constraints) {
+                  return Wrap(
+                    spacing: 12,
+                    runSpacing: 12,
+                    children: [
+                      SizedBox(
+                        width: constraints.maxWidth > 600 ? (constraints.maxWidth - 24) / 3 : constraints.maxWidth,
+                        child: _buildDetailMetric(
+                          'Total Inventory',
+                          totalInventory.toString(),
+                          Icons.inventory,
+                          Colors.purple,
+                        ),
+                      ),
+                      SizedBox(
+                        width: constraints.maxWidth > 600 ? (constraints.maxWidth - 24) / 3 : constraints.maxWidth,
+                        child: _buildDetailMetric(
+                          'Processing',
+                          processingInventory.toString(),
+                          Icons.pending_actions,
+                          Colors.orange,
+                        ),
+                      ),
+                      SizedBox(
+                        width: constraints.maxWidth > 600 ? (constraints.maxWidth - 24) / 3 : constraints.maxWidth,
+                        child: _buildDetailMetric(
+                          'Ready',
+                          readyInventory.toString(),
+                          Icons.check_circle,
+                          Colors.green,
+                        ),
+                      ),
+                    ],
+                  );
+                },
               ),
               const SizedBox(height: 16),
 

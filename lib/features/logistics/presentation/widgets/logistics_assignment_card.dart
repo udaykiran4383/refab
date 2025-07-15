@@ -1,11 +1,22 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../data/models/logistics_assignment_model.dart';
+import '../../../tailor/data/models/pickup_request_model.dart';
+import '../../../tailor/data/repositories/tailor_repository.dart';
 
-class LogisticsAssignmentCard extends StatelessWidget {
+// Provider for pickup request data
+final pickupRequestProvider = FutureProvider.family<PickupRequestModel?, String>((ref, pickupRequestId) async {
+  final repository = TailorRepository();
+  return await repository.getPickupRequest(pickupRequestId);
+});
+
+class LogisticsAssignmentCard extends ConsumerWidget {
   final LogisticsAssignmentModel assignment;
   final VoidCallback? onStatusUpdate;
   final VoidCallback? onWarehouseAssign;
   final VoidCallback? onViewDetails;
+  final bool isCompleted;
+  final String? currentUserId; // Add current user ID for self-assignment check
 
   const LogisticsAssignmentCard({
     super.key,
@@ -13,14 +24,24 @@ class LogisticsAssignmentCard extends StatelessWidget {
     this.onStatusUpdate,
     this.onWarehouseAssign,
     this.onViewDetails,
+    this.isCompleted = false,
+    this.currentUserId, // Add this parameter
   });
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final pickupRequestAsync = ref.watch(pickupRequestProvider(assignment.pickupRequestId));
+    
     return Card(
       margin: const EdgeInsets.only(bottom: 12),
       elevation: 2,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(8),
+        side: isCompleted
+            ? const BorderSide(color: Colors.green, width: 2)
+            : BorderSide.none,
+      ),
+      color: isCompleted ? Colors.green.withOpacity(0.08) : null,
       child: Padding(
         padding: const EdgeInsets.all(12),
         child: Column(
@@ -142,6 +163,18 @@ class LogisticsAssignmentCard extends StatelessWidget {
             
             const SizedBox(height: 12),
             
+            // Warehouse Assignment Status (if assigned)
+            if (assignment.assignedWarehouseId != null)
+              _buildWarehouseAssignmentStatus(),
+            
+            const SizedBox(height: 12),
+            
+            // Tailor Pickup Progress (for pickup assignments)
+            if (assignment.type == LogisticsAssignmentType.pickup)
+              _buildTailorPickupProgress(pickupRequestAsync),
+            
+            const SizedBox(height: 12),
+            
             // Workflow Steps - More compact
             _buildCompactWorkflowSteps(context),
             
@@ -158,12 +191,16 @@ class LogisticsAssignmentCard extends StatelessWidget {
                       label: const Text('Details', style: TextStyle(fontSize: 12)),
                       style: OutlinedButton.styleFrom(
                         padding: const EdgeInsets.symmetric(vertical: 8),
+                        foregroundColor: isCompleted ? Colors.green : null,
+                        side: isCompleted
+                            ? const BorderSide(color: Colors.green)
+                            : null,
                       ),
                     ),
                   ),
-                if (onViewDetails != null && (onStatusUpdate != null || onWarehouseAssign != null))
+                if (!isCompleted && onViewDetails != null && (onStatusUpdate != null || onWarehouseAssign != null))
                   const SizedBox(width: 6),
-                if (onStatusUpdate != null)
+                if (!isCompleted && onStatusUpdate != null)
                   Expanded(
                     child: ElevatedButton.icon(
                       onPressed: onStatusUpdate,
@@ -176,9 +213,9 @@ class LogisticsAssignmentCard extends StatelessWidget {
                       ),
                     ),
                   ),
-                if (onStatusUpdate != null && onWarehouseAssign != null)
+                if (!isCompleted && onStatusUpdate != null && onWarehouseAssign != null)
                   const SizedBox(width: 6),
-                if (onWarehouseAssign != null && assignment.assignedWarehouseId == null)
+                if (!isCompleted && onWarehouseAssign != null && assignment.assignedWarehouseId == null)
                   Expanded(
                     child: ElevatedButton.icon(
                       onPressed: onWarehouseAssign,
@@ -267,6 +304,332 @@ class LogisticsAssignmentCard extends StatelessWidget {
   String _truncateAddress(String address) {
     if (address.length <= 30) return address;
     return '${address.substring(0, 27)}...';
+  }
+
+  Widget _buildWarehouseAssignmentStatus() {
+    // Check if this logistics personnel has assigned themselves
+    final isSelfAssigned = currentUserId != null && 
+                          assignment.logisticsId == currentUserId && 
+                          assignment.assignedWarehouseId != null;
+    
+    return Container(
+      padding: const EdgeInsets.all(8),
+      decoration: BoxDecoration(
+        color: isSelfAssigned ? Colors.green.withOpacity(0.1) : Colors.blue.withOpacity(0.1),
+        borderRadius: BorderRadius.circular(6),
+        border: Border.all(
+          color: isSelfAssigned ? Colors.green.withOpacity(0.3) : Colors.blue.withOpacity(0.3),
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(
+                isSelfAssigned ? Icons.check_circle : Icons.warehouse, 
+                size: 16, 
+                color: isSelfAssigned ? Colors.green[700] : Colors.blue[700]
+              ),
+              const SizedBox(width: 8),
+              Text(
+                isSelfAssigned ? 'Self-Assigned to Warehouse' : 'Warehouse Assignment',
+                style: TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.bold,
+                  color: isSelfAssigned ? Colors.green[700] : Colors.blue[700],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 6),
+          // Warehouse Details
+          Row(
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Warehouse: ${assignment.assignedWarehouseName ?? 'Unknown Warehouse'}',
+                      style: const TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                    if (assignment.warehouseType != null)
+                      Text(
+                        'Type: ${assignment.warehouseTypeDisplayName}',
+                        style: TextStyle(
+                          fontSize: 10,
+                          color: Colors.grey[600],
+                        ),
+                      ),
+                    if (assignment.warehouseAddress != null)
+                      Text(
+                        'Address: ${_truncateAddress(assignment.warehouseAddress!)}',
+                        style: TextStyle(
+                          fontSize: 10,
+                          color: Colors.grey[600],
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                decoration: BoxDecoration(
+                  color: isSelfAssigned ? Colors.green.withOpacity(0.2) : Colors.blue.withOpacity(0.2),
+                  borderRadius: BorderRadius.circular(4),
+                ),
+                child: Text(
+                  isSelfAssigned ? 'Self-Assigned' : assignment.statusDisplayName,
+                  style: TextStyle(
+                    fontSize: 10,
+                    fontWeight: FontWeight.bold,
+                    color: isSelfAssigned ? Colors.green[700] : Colors.blue[700],
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 6),
+          // Logistics Personnel Details
+          Row(
+            children: [
+              Icon(Icons.person, size: 14, color: Colors.green[700]),
+              const SizedBox(width: 6),
+              Text(
+                'Logistics Personnel',
+                style: TextStyle(
+                  fontSize: 10,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.green[700],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 2),
+          Text(
+            'ID: ${assignment.logisticsId}',
+            style: TextStyle(
+              fontSize: 10,
+              color: Colors.grey[600],
+            ),
+          ),
+          if (isSelfAssigned)
+            Text(
+              '✓ You have assigned yourself to this warehouse',
+              style: TextStyle(
+                fontSize: 10,
+                color: Colors.green[700],
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          if (isSelfAssigned)
+            Text(
+              '⚠️ This assignment cannot be changed later',
+              style: TextStyle(
+                fontSize: 9,
+                color: Colors.orange[700],
+                fontStyle: FontStyle.italic,
+              ),
+            ),
+          const SizedBox(height: 6),
+          // Tailor Details (for pickup assignments)
+          if (assignment.type == LogisticsAssignmentType.pickup && assignment.tailorName != null)
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Icon(Icons.content_cut, size: 14, color: Colors.orange[700]),
+                    const SizedBox(width: 6),
+                    Text(
+                      'Tailor Details',
+                      style: TextStyle(
+                        fontSize: 10,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.orange[700],
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  'Name: ${assignment.tailorName}',
+                  style: TextStyle(
+                    fontSize: 10,
+                    color: Colors.grey[600],
+                  ),
+                ),
+                if (assignment.tailorPhone != null)
+                  Text(
+                    'Phone: ${assignment.tailorPhone}',
+                    style: TextStyle(
+                      fontSize: 10,
+                      color: Colors.grey[600],
+                    ),
+                  ),
+                if (assignment.tailorAddress != null)
+                  Text(
+                    'Address: ${_truncateAddress(assignment.tailorAddress!)}',
+                    style: TextStyle(
+                      fontSize: 10,
+                      color: Colors.grey[600],
+                    ),
+                  ),
+              ],
+            ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildTailorPickupProgress(AsyncValue<PickupRequestModel?> pickupRequestAsync) {
+    return pickupRequestAsync.when(
+      data: (pickupRequest) {
+        if (pickupRequest == null) {
+          return Container(
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              color: Colors.grey.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(6),
+            ),
+            child: Row(
+              children: [
+                Icon(Icons.info_outline, size: 16, color: Colors.grey[600]),
+                const SizedBox(width: 8),
+                Text(
+                  'Pickup request not found',
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: Colors.grey[600],
+                  ),
+                ),
+              ],
+            ),
+          );
+        }
+
+        return Container(
+          padding: const EdgeInsets.all(8),
+          decoration: BoxDecoration(
+            color: Colors.orange.withOpacity(0.1),
+            borderRadius: BorderRadius.circular(6),
+            border: Border.all(color: Colors.orange.withOpacity(0.3)),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Icon(Icons.person, size: 16, color: Colors.orange[700]),
+                  const SizedBox(width: 8),
+                  Text(
+                    'Tailor Pickup Progress',
+                    style: TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.orange[700],
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 4),
+              Row(
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Status: ${pickupRequest.statusDisplayName}',
+                          style: const TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                        if (pickupRequest.workProgress != null)
+                          Text(
+                            'Work: ${pickupRequest.workProgressDisplayName}',
+                            style: TextStyle(
+                              fontSize: 11,
+                              color: Colors.grey[600],
+                            ),
+                          ),
+                      ],
+                    ),
+                  ),
+                  if (pickupRequest.estimatedWeight > 0)
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                      decoration: BoxDecoration(
+                        color: Colors.orange.withOpacity(0.2),
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                      child: Text(
+                        '${pickupRequest.estimatedWeight}kg',
+                        style: TextStyle(
+                          fontSize: 10,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.orange[700],
+                        ),
+                      ),
+                    ),
+                ],
+              ),
+            ],
+          ),
+        );
+      },
+      loading: () => Container(
+        padding: const EdgeInsets.all(8),
+        decoration: BoxDecoration(
+          color: Colors.grey.withOpacity(0.1),
+          borderRadius: BorderRadius.circular(6),
+        ),
+        child: Row(
+          children: [
+            SizedBox(
+              width: 16,
+              height: 16,
+              child: CircularProgressIndicator(strokeWidth: 2),
+            ),
+            const SizedBox(width: 8),
+            Text(
+              'Loading pickup progress...',
+              style: TextStyle(
+                fontSize: 12,
+                color: Colors.grey[600],
+              ),
+            ),
+          ],
+        ),
+      ),
+      error: (error, stack) => Container(
+        padding: const EdgeInsets.all(8),
+        decoration: BoxDecoration(
+          color: Colors.red.withOpacity(0.1),
+          borderRadius: BorderRadius.circular(6),
+        ),
+        child: Row(
+          children: [
+            Icon(Icons.error_outline, size: 16, color: Colors.red[600]),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                'Error loading pickup progress',
+                style: TextStyle(
+                  fontSize: 12,
+                  color: Colors.red[600],
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 
   Widget _buildCompactWorkflowSteps(BuildContext context) {

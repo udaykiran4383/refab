@@ -9,15 +9,14 @@ import 'repository/warehouse_repository_test.dart' as warehouse_test;
 import 'repository/logistics_repository_test.dart' as logistics_test;
 import 'repository/volunteer_repository_test.dart' as volunteer_test;
 
-void main() {
-  group('🧪 COMPREHENSIVE REPOSITORY TEST SUITE', () {
-    setUpAll(() async {
-      print('\n🚀 [TEST_SUITE] Initializing Firebase for all tests...');
-      await Firebase.initializeApp();
-      print('🚀 [TEST_SUITE] ✅ Firebase initialized successfully');
-      print('🚀 [TEST_SUITE] Starting comprehensive repository testing...\n');
-    });
+void main() async {
+  TestWidgetsFlutterBinding.ensureInitialized();
+  await Firebase.initializeApp();
+  print('\n🚀 [TEST_SUITE] Initializing Firebase for all tests...');
+  print('🚀 [TEST_SUITE] ✅ Firebase initialized successfully');
+  print('🚀 [TEST_SUITE] Starting comprehensive repository testing...\n');
 
+  group('🧪 COMPREHENSIVE REPOSITORY TEST SUITE', () {
     group('👔 TAILOR REPOSITORY TESTS', () {
       test('Run all Tailor Repository tests', () async {
         print('\n🧪 [TAILOR_SUITE] ==========================================');

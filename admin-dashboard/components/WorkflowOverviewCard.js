@@ -81,39 +81,39 @@ export default function WorkflowOverviewCard() {
 
   const workflowSteps = [
     {
-      name: 'Pickup',
+      name: 'Customer',
       count: workflowData.pickupRequests,
       icon: TruckIcon,
       color: 'blue',
-      description: 'Requests received'
+      description: 'Tailor has fabric'
     },
     {
       name: 'Tailoring',
       count: workflowData.inTailoring,
       icon: ScissorsIcon,
       color: 'purple',
-      description: 'In progress'
+      description: 'Processing available fabric'
     },
     {
       name: 'Logistics',
       count: workflowData.inLogistics,
       icon: TruckIcon,
       color: 'orange',
-      description: 'In transit'
+      description: 'Tailor to warehouse'
     },
     {
       name: 'Warehouse',
       count: workflowData.inWarehouse,
       icon: CubeIcon,
       color: 'green',
-      description: 'Processing'
+      description: 'Stores products'
     },
     {
       name: 'Completed',
       count: workflowData.completed,
       icon: CheckCircleIcon,
       color: 'emerald',
-      description: 'Delivered'
+      description: 'Customer receives'
     }
   ]
 

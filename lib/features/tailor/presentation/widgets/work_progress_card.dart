@@ -100,7 +100,7 @@ class WorkProgressCard extends StatelessWidget {
                     const SizedBox(width: 8),
                     Expanded(
                       child: Text(
-                        'Waiting for fabric to be picked up by logistics',
+                        'Ready to start tailoring work',
                         style: TextStyle(
                           color: Colors.orange[700],
                           fontSize: 12,
@@ -118,14 +118,11 @@ class WorkProgressCard extends StatelessWidget {
 
   Widget _buildProgressSteps(BuildContext context) {
     final steps = [
-      {'name': 'Fabric Received', 'progress': TailorWorkProgress.fabricReceived},
-      {'name': 'Fabric Inspected', 'progress': TailorWorkProgress.fabricInspected},
-      {'name': 'Cutting Started', 'progress': TailorWorkProgress.cuttingStarted},
-      {'name': 'Cutting Complete', 'progress': TailorWorkProgress.cuttingComplete},
-      {'name': 'Sewing Started', 'progress': TailorWorkProgress.sewingStarted},
-      {'name': 'Sewing Complete', 'progress': TailorWorkProgress.sewingComplete},
+      {'name': 'Work Started', 'progress': TailorWorkProgress.workStarted},
+      {'name': 'Work In Progress', 'progress': TailorWorkProgress.workInProgress},
+      {'name': 'Work Completed', 'progress': TailorWorkProgress.workCompleted},
       {'name': 'Quality Check', 'progress': TailorWorkProgress.qualityCheck},
-      {'name': 'Ready for Pickup', 'progress': TailorWorkProgress.readyForDelivery},
+      {'name': 'Ready for Pickup', 'progress': TailorWorkProgress.readyForPickup},
     ];
 
     return Column(
@@ -183,7 +180,7 @@ class WorkProgressCard extends StatelessWidget {
         }).toList(),
         
         // Warehouse Information Section
-        if (request.isReadyForDelivery || request.isWorkCompleted) ...[
+        if (request.isReadyForPickup || request.isWorkFinished) ...[
           const SizedBox(height: 16),
           Container(
             padding: const EdgeInsets.all(12),
@@ -235,7 +232,7 @@ class WorkProgressCard extends StatelessWidget {
         ),
         const SizedBox(height: 4),
         Text(
-          'Logistics will pick up the completed work and deliver it to the assigned warehouse.',
+          'Logistics will collect the completed tailoring work and deliver to warehouse.',
           style: TextStyle(
             color: Colors.blue[600],
             fontSize: 11,
@@ -249,7 +246,7 @@ class WorkProgressCard extends StatelessWidget {
             borderRadius: BorderRadius.circular(4),
           ),
           child: Text(
-            'Work completed and ready for pickup',
+            'Tailoring work completed and ready for pickup',
             style: TextStyle(
               color: Colors.green[700],
               fontSize: 11,

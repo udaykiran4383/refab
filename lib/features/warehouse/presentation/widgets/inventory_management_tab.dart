@@ -1,8 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:refab_app/features/warehouse/providers/warehouse_provider.dart';
-import 'package:refab_app/features/warehouse/data/models/inventory_model.dart';
-import 'package:refab_app/features/warehouse/presentation/widgets/inventory_card.dart';
+import '../../../warehouse/data/models/inventory_model.dart';
+import '../../../warehouse/providers/warehouse_provider.dart';
 
 class InventoryManagementTab extends ConsumerStatefulWidget {
   const InventoryManagementTab({super.key});
@@ -25,123 +24,183 @@ class _InventoryManagementTabState extends ConsumerState<InventoryManagementTab>
 
   @override
   Widget build(BuildContext context) {
-    final warehouseId = ref.watch(warehouseIdProvider);
+    const warehouseId = 'main_warehouse'; // TODO: Get from user context
     final inventoryAsync = ref.watch(inventoryItemsProvider(warehouseId));
 
     return Column(
       children: [
-        // Filters and Search
+        // Enhanced Search and Filters
         Container(
-          padding: const EdgeInsets.all(16),
-          child: Column(
-            children: [
-              // Search Bar
-              TextField(
-                controller: _searchController,
-                decoration: InputDecoration(
-                  hintText: 'Search inventory...',
-                  prefixIcon: const Icon(Icons.search),
-                  suffixIcon: IconButton(
-                    icon: const Icon(Icons.clear),
-                    onPressed: () {
-                      _searchController.clear();
-                      setState(() {
-                        _searchQuery = '';
-                      });
-                    },
-                  ),
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                ),
-                onChanged: (value) {
-                  setState(() {
-                    _searchQuery = value;
-                  });
-                },
-              ),
-              const SizedBox(height: 12),
-              // Filter Row
-              Row(
-                children: [
-                  Expanded(
-                    child: DropdownButtonFormField<String>(
-                      value: _selectedStatus,
-                      decoration: const InputDecoration(
-                        labelText: 'Status',
-                        border: OutlineInputBorder(),
-                      ),
-                      items: [
-                        const DropdownMenuItem(value: 'all', child: Text('All Status')),
-                        ...InventoryStatus.values.map((status) => DropdownMenuItem(
-                          value: status.toString().split('.').last,
-                          child: Text(status.toString().split('.').last),
-                        )),
-                      ],
-                      onChanged: (value) {
-                        setState(() {
-                          _selectedStatus = value!;
-                        });
-                      },
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: DropdownButtonFormField<String>(
-                      value: _selectedCategory,
-                      decoration: const InputDecoration(
-                        labelText: 'Category',
-                        border: OutlineInputBorder(),
-                      ),
-                      items: [
-                        const DropdownMenuItem(value: 'all', child: Text('All Categories')),
-                        const DropdownMenuItem(value: 'cotton', child: Text('Cotton')),
-                        const DropdownMenuItem(value: 'silk', child: Text('Silk')),
-                        const DropdownMenuItem(value: 'polyester', child: Text('Polyester')),
-                        const DropdownMenuItem(value: 'wool', child: Text('Wool')),
-                        const DropdownMenuItem(value: 'linen', child: Text('Linen')),
-                      ],
-                      onChanged: (value) {
-                        setState(() {
-                          _selectedCategory = value!;
-                        });
-                      },
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 12),
-              // Quick Actions
-              Row(
-                children: [
-                  Expanded(
-                    child: ElevatedButton.icon(
-                      onPressed: () => _showBatchProcessingDialog(),
-                      icon: const Icon(Icons.batch_prediction),
-                      label: const Text('Batch Process'),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.blue[800],
-                        foregroundColor: Colors.white,
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: ElevatedButton.icon(
-                      onPressed: () => _showMoveToReadyDialog(),
-                      icon: const Icon(Icons.check_circle),
-                      label: const Text('Move to Ready'),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.green[800],
-                        foregroundColor: Colors.white,
-                      ),
-                    ),
-                  ),
-                ],
+          margin: const EdgeInsets.all(20),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(20),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.grey.withOpacity(0.1),
+                spreadRadius: 2,
+                blurRadius: 15,
+                offset: const Offset(0, 4),
               ),
             ],
           ),
+          child: Padding(
+            padding: const EdgeInsets.all(20),
+            child: Column(
+              children: [
+                // Enhanced Search Bar
+                Container(
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      colors: [
+                        Colors.grey[50]!,
+                        Colors.white,
+                      ],
+                    ),
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(
+                      color: Theme.of(context).colorScheme.primary.withOpacity(0.1),
+                      width: 1,
+                    ),
+                  ),
+                  child: TextField(
+                    controller: _searchController,
+                    decoration: InputDecoration(
+                      hintText: '🔍 Search inventory...',
+                      hintStyle: TextStyle(
+                        color: Colors.grey[500],
+                        fontSize: 14,
+                      ),
+                      prefixIcon: Container(
+                        margin: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          color: Theme.of(context).colorScheme.primary.withOpacity(0.1),
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        child: Icon(
+                          Icons.search,
+                          color: Theme.of(context).colorScheme.primary,
+                        ),
+                      ),
+                      border: InputBorder.none,
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 18),
+                    ),
+                    onChanged: (value) {
+                      setState(() {
+                        _searchQuery = value;
+                      });
+                    },
+                  ),
+                ),
+                const SizedBox(height: 20),
+                
+                // Enhanced Filters
+                Row(
+                  children: [
+                    Expanded(
+                      child: Container(
+                        decoration: BoxDecoration(
+                          gradient: LinearGradient(
+                            colors: [
+                              Theme.of(context).colorScheme.primary.withOpacity(0.05),
+                              Theme.of(context).colorScheme.primary.withOpacity(0.02),
+                            ],
+                          ),
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(
+                            color: Theme.of(context).colorScheme.primary.withOpacity(0.1),
+                            width: 1,
+                          ),
+                        ),
+                        child: DropdownButtonFormField<String>(
+                          value: _selectedStatus,
+                          decoration: InputDecoration(
+                            labelText: 'Status',
+                            labelStyle: TextStyle(
+                              color: Theme.of(context).colorScheme.primary,
+                              fontWeight: FontWeight.w500,
+                              fontSize: 12,
+                            ),
+                            border: InputBorder.none,
+                            contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                            prefixIcon: Icon(
+                              Icons.filter_list,
+                              color: Theme.of(context).colorScheme.primary,
+                              size: 18,
+                            ),
+                          ),
+                          items: const [
+                            DropdownMenuItem(value: 'all', child: Text('All', style: TextStyle(fontSize: 12))),
+                            DropdownMenuItem(value: 'processing', child: Text('Processing', style: TextStyle(fontSize: 12))),
+                            DropdownMenuItem(value: 'graded', child: Text('Graded', style: TextStyle(fontSize: 12))),
+                            DropdownMenuItem(value: 'ready', child: Text('Ready', style: TextStyle(fontSize: 12))),
+                            DropdownMenuItem(value: 'lowStock', child: Text('Low Stock', style: TextStyle(fontSize: 12))),
+                            DropdownMenuItem(value: 'damaged', child: Text('Damaged', style: TextStyle(fontSize: 12))),
+                          ],
+                          onChanged: (value) {
+                            setState(() {
+                              _selectedStatus = value!;
+                            });
+                          },
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Container(
+                        decoration: BoxDecoration(
+                          gradient: LinearGradient(
+                            colors: [
+                              Theme.of(context).colorScheme.secondary.withOpacity(0.05),
+                              Theme.of(context).colorScheme.secondary.withOpacity(0.02),
+                            ],
+                          ),
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(
+                            color: Theme.of(context).colorScheme.secondary.withOpacity(0.1),
+                            width: 1,
+                          ),
+                        ),
+                        child: DropdownButtonFormField<String>(
+                          value: _selectedCategory,
+                          decoration: InputDecoration(
+                            labelText: 'Category',
+                            labelStyle: TextStyle(
+                              color: Theme.of(context).colorScheme.secondary,
+                              fontWeight: FontWeight.w500,
+                              fontSize: 12,
+                            ),
+                            border: InputBorder.none,
+                            contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                            prefixIcon: Icon(
+                              Icons.category,
+                              color: Theme.of(context).colorScheme.secondary,
+                              size: 18,
+                            ),
+                          ),
+                          items: const [
+                            DropdownMenuItem(value: 'all', child: Text('All', style: TextStyle(fontSize: 12))),
+                            DropdownMenuItem(value: 'cotton', child: Text('Cotton', style: TextStyle(fontSize: 12))),
+                            DropdownMenuItem(value: 'silk', child: Text('Silk', style: TextStyle(fontSize: 12))),
+                            DropdownMenuItem(value: 'polyester', child: Text('Polyester', style: TextStyle(fontSize: 12))),
+                            DropdownMenuItem(value: 'wool', child: Text('Wool', style: TextStyle(fontSize: 12))),
+                            DropdownMenuItem(value: 'linen', child: Text('Linen', style: TextStyle(fontSize: 12))),
+                          ],
+                          onChanged: (value) {
+                            setState(() {
+                              _selectedCategory = value!;
+                            });
+                          },
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
         ),
+        
         // Inventory List
         Expanded(
           child: inventoryAsync.when(
@@ -149,51 +208,94 @@ class _InventoryManagementTabState extends ConsumerState<InventoryManagementTab>
               final filteredInventory = _filterInventory(inventory);
               
               if (filteredInventory.isEmpty) {
-                return const Center(
+                return Container(
+                  padding: const EdgeInsets.all(40),
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      Icon(Icons.inventory_2, size: 64, color: Colors.grey),
-                      SizedBox(height: 16),
-                      Text('No inventory items found'),
-                      Text('Try adjusting your filters'),
+                      Container(
+                        padding: const EdgeInsets.all(24),
+                        decoration: BoxDecoration(
+                          gradient: LinearGradient(
+                            colors: [
+                              Colors.grey[100]!,
+                              Colors.grey[50]!,
+                            ],
+                          ),
+                          shape: BoxShape.circle,
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.grey.withOpacity(0.1),
+                              blurRadius: 10,
+                              offset: const Offset(0, 4),
+                            ),
+                          ],
+                        ),
+                        child: Icon(
+                          Icons.inventory_2_outlined,
+                          size: 64,
+                          color: Colors.grey[600],
+                        ),
+                      ),
+                      const SizedBox(height: 24),
+                      Text(
+                        'No inventory items found',
+                        style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                          color: Colors.grey[700],
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        'Add your first inventory item to get started',
+                        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                          color: Colors.grey[600],
+                        ),
+                        textAlign: TextAlign.center,
+                      ),
                     ],
                   ),
                 );
               }
 
               return ListView.builder(
-                padding: const EdgeInsets.symmetric(horizontal: 16),
+                padding: const EdgeInsets.symmetric(horizontal: 20),
                 itemCount: filteredInventory.length,
                 itemBuilder: (context, index) {
                   final item = filteredInventory[index];
-                  return InventoryCard(
-                    inventory: item,
-                    onTap: () => _showInventoryDetails(item),
-                    onStatusChange: (status) {
-                      if (status != null) {
-                        _updateItemStatus(item.id, status);
-                      }
-                    },
-                    onEdit: () => _editInventoryItem(item),
-                    onDelete: () => _deleteInventoryItem(item.id),
-                  );
+                  return _buildInventoryCard(item);
                 },
               );
             },
-            loading: () => const Center(child: CircularProgressIndicator()),
+            loading: () => const Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  CircularProgressIndicator(),
+                  SizedBox(height: 16),
+                  Text('Loading inventory...'),
+                ],
+              ),
+            ),
             error: (error, stack) => Center(
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  const Icon(Icons.error, size: 64, color: Colors.red),
+                  Icon(Icons.error_outline, size: 64, color: Colors.red[300]),
                   const SizedBox(height: 16),
-                  Text('Error: $error'),
-                  ElevatedButton(
-                    onPressed: () {
-                      ref.invalidate(inventoryItemsProvider(warehouseId));
-                    },
-                    child: const Text('Retry'),
+                  Text(
+                    'Error loading inventory',
+                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                      color: Colors.red[700],
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    error.toString(),
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      color: Colors.grey[600],
+                    ),
+                    textAlign: TextAlign.center,
                   ),
                 ],
               ),
@@ -202,6 +304,293 @@ class _InventoryManagementTabState extends ConsumerState<InventoryManagementTab>
         ),
       ],
     );
+  }
+
+  Widget _buildInventoryCard(InventoryModel item) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 16),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            Colors.white,
+            Colors.grey[50]!,
+          ],
+        ),
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.grey.withOpacity(0.1),
+            spreadRadius: 2,
+            blurRadius: 15,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          borderRadius: BorderRadius.circular(20),
+          onTap: () => _showInventoryDetails(item),
+          child: Container(
+            padding: const EdgeInsets.all(20),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    // Enhanced Status indicator
+                    Container(
+                      width: 6,
+                      height: 50,
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          colors: [
+                            _getStatusColor(item.status),
+                            _getStatusColor(item.status).withOpacity(0.7),
+                          ],
+                        ),
+                        borderRadius: BorderRadius.circular(3),
+                        boxShadow: [
+                          BoxShadow(
+                            color: _getStatusColor(item.status).withOpacity(0.3),
+                            blurRadius: 8,
+                            offset: const Offset(0, 2),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(width: 16),
+                    
+                    // Inventory details
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              Expanded(
+                                child: Text(
+                                  '${item.fabricCategory} - ${item.qualityGrade}',
+                                  style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                                    fontWeight: FontWeight.bold,
+                                    color: Colors.grey[800],
+                                    fontSize: 18,
+                                  ),
+                                  overflow: TextOverflow.ellipsis,
+                                  maxLines: 1,
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                                decoration: BoxDecoration(
+                                  gradient: LinearGradient(
+                                    colors: [
+                                      _getStatusColor(item.status).withOpacity(0.1),
+                                      _getStatusColor(item.status).withOpacity(0.05),
+                                    ],
+                                  ),
+                                  borderRadius: BorderRadius.circular(12),
+                                  border: Border.all(
+                                    color: _getStatusColor(item.status).withOpacity(0.2),
+                                    width: 1,
+                                  ),
+                                ),
+                                child: Text(
+                                  item.statusLabel.toUpperCase(),
+                                  style: TextStyle(
+                                    color: _getStatusColor(item.status),
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.w600,
+                                    letterSpacing: 0.5,
+                                  ),
+                                  overflow: TextOverflow.ellipsis,
+                                  maxLines: 1,
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 12),
+                          
+                          // Enhanced info rows
+                          _buildInventoryInfoRow(
+                            Icons.scale,
+                            item.formattedWeight,
+                            Icons.location_on,
+                            item.warehouseLocation ?? 'Not assigned',
+                          ),
+                          const SizedBox(height: 8),
+                          _buildInventoryInfoRow(
+                            Icons.attach_money,
+                            item.formattedCost,
+                            Icons.calendar_today,
+                            _formatDate(item.createdAt),
+                          ),
+                          if (item.id != null) ...[
+                            const SizedBox(height: 8),
+                            Row(
+                              children: [
+                                Container(
+                                  padding: const EdgeInsets.all(6),
+                                  decoration: BoxDecoration(
+                                    color: Colors.grey[100],
+                                    borderRadius: BorderRadius.circular(8),
+                                  ),
+                                  child: Icon(Icons.tag, size: 16, color: Colors.grey[600]),
+                                ),
+                                const SizedBox(width: 8),
+                                Expanded(
+                                  child: Text(
+                                    'ID: ${item.id!.substring(0, 8)}',
+                                    style: TextStyle(
+                                      color: Colors.grey[600],
+                                      fontWeight: FontWeight.w500,
+                                      fontFamily: 'monospace',
+                                      fontSize: 12,
+                                    ),
+                                    overflow: TextOverflow.ellipsis,
+                                    maxLines: 1,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ],
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+                
+                // Special indicators
+                if (item.needsAttention) ...[
+                  const SizedBox(height: 12),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        colors: [
+                          Colors.orange[50]!,
+                          Colors.orange[100]!,
+                        ],
+                      ),
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(
+                        color: Colors.orange[200]!,
+                        width: 1,
+                      ),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(Icons.warning, color: Colors.orange[700], size: 16),
+                        const SizedBox(width: 6),
+                        Flexible(
+                          child: Text(
+                            item.isLowStock ? 'Low Stock' : 
+                            item.isDamaged ? 'Damaged' : 
+                            item.isExpired ? 'Expired' : 'Needs Attention',
+                            style: TextStyle(
+                              color: Colors.orange[700],
+                              fontWeight: FontWeight.w600,
+                              fontSize: 12,
+                            ),
+                            overflow: TextOverflow.ellipsis,
+                            maxLines: 1,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildInventoryInfoRow(IconData icon1, String text1, IconData icon2, String text2) {
+    return Row(
+      children: [
+        Expanded(
+          child: Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(6),
+                decoration: BoxDecoration(
+                  color: Theme.of(context).colorScheme.primary.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Icon(icon1, size: 16, color: Theme.of(context).colorScheme.primary),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  text1,
+                  style: TextStyle(
+                    color: Colors.grey[700],
+                    fontWeight: FontWeight.w500,
+                    fontSize: 13,
+                  ),
+                  overflow: TextOverflow.ellipsis,
+                  maxLines: 1,
+                ),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(width: 16),
+        Expanded(
+          child: Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(6),
+                decoration: BoxDecoration(
+                  color: Theme.of(context).colorScheme.secondary.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Icon(icon2, size: 16, color: Theme.of(context).colorScheme.secondary),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  text2,
+                  style: TextStyle(
+                    color: Colors.grey[700],
+                    fontWeight: FontWeight.w500,
+                    fontSize: 13,
+                  ),
+                  overflow: TextOverflow.ellipsis,
+                  maxLines: 1,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  Color _getStatusColor(InventoryStatus status) {
+    switch (status) {
+      case InventoryStatus.processing:
+        return Colors.orange;
+      case InventoryStatus.graded:
+        return Colors.blue;
+      case InventoryStatus.ready:
+        return Colors.green;
+      case InventoryStatus.used:
+        return Colors.grey;
+      case InventoryStatus.lowStock:
+        return Colors.red;
+      case InventoryStatus.reserved:
+        return Colors.purple;
+      case InventoryStatus.damaged:
+        return Colors.red;
+    }
   }
 
   List<InventoryModel> _filterInventory(List<InventoryModel> inventory) {
@@ -223,7 +612,7 @@ class _InventoryManagementTabState extends ConsumerState<InventoryManagementTab>
         final query = _searchQuery.toLowerCase();
         return item.fabricCategory.toLowerCase().contains(query) ||
                item.qualityGrade.toLowerCase().contains(query) ||
-               item.id.toLowerCase().contains(query) ||
+               (item.id?.toLowerCase().contains(query) ?? false) ||
                (item.supplierName?.toLowerCase().contains(query) ?? false) ||
                (item.batchNumber?.toLowerCase().contains(query) ?? false);
       }
@@ -236,7 +625,7 @@ class _InventoryManagementTabState extends ConsumerState<InventoryManagementTab>
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: Text('Inventory Item: ${item.id}'),
+        title: Text('Inventory Item: ${item.id ?? 'New Item'}'),
         content: SingleChildScrollView(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -295,55 +684,13 @@ class _InventoryManagementTabState extends ConsumerState<InventoryManagementTab>
   }
 
   String _formatDate(DateTime date) {
-    return '${date.day}/${date.month}/${date.year} ${date.hour}:${date.minute}';
-  }
-
-  void _updateItemStatus(String itemId, InventoryStatus status) {
-    ref.read(warehouseNotifierProvider.notifier).updateInventoryStatus(itemId, status);
+    return '${date.day}/${date.month}/${date.year}';
   }
 
   void _editInventoryItem(InventoryModel item) {
-    // TODO: Navigate to edit inventory item page
+    // TODO: Implement edit functionality
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Edit functionality coming soon!')),
-    );
-  }
-
-  void _deleteInventoryItem(String itemId) {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Delete Inventory Item'),
-        content: const Text('Are you sure you want to delete this inventory item?'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(),
-            child: const Text('Cancel'),
-          ),
-          ElevatedButton(
-            onPressed: () {
-              Navigator.of(context).pop();
-              ref.read(warehouseNotifierProvider.notifier).deleteInventoryItem(itemId);
-            },
-            style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
-            child: const Text('Delete'),
-          ),
-        ],
-      ),
-    );
-  }
-
-  void _showBatchProcessingDialog() {
-    // TODO: Implement batch processing dialog
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Batch processing coming soon!')),
-    );
-  }
-
-  void _showMoveToReadyDialog() {
-    // TODO: Implement move to ready dialog
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Move to ready functionality coming soon!')),
+      SnackBar(content: Text('Edit ${item.id ?? 'New Item'} - Coming soon!')),
     );
   }
 } 

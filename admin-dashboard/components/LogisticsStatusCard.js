@@ -10,7 +10,9 @@ import {
   ClockIcon,
   ExclamationTriangleIcon,
   CheckCircleIcon,
-  UserIcon
+  UserIcon,
+  WarehouseIcon,
+  ScissorsIcon
 } from '@heroicons/react/24/outline'
 
 export default function LogisticsStatusCard() {
@@ -24,7 +26,9 @@ export default function LogisticsStatusCard() {
     completedToday: 0,
     averageDeliveryTime: 0,
     deliveries: [],
-    issues: []
+    issues: [],
+    warehouseAssignments: [],
+    tailorProgress: []
   })
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
@@ -94,6 +98,50 @@ export default function LogisticsStatusCard() {
         ? Math.round(deliveryTimes.reduce((a, b) => a + b, 0) / deliveryTimes.length)
         : 0
 
+      // Get warehouse assignment information
+      const warehouseAssignments = pickupAssignments.filter(doc => {
+        const data = doc.data()
+        return data.assigned_warehouse_id || data.assignedWarehouseId
+      }).map(doc => {
+        const data = doc.data()
+        const isSelfAssigned = data.logistics_id === data.assigned_by_logistics_id
+        return {
+          id: doc.id,
+          warehouseName: data.assigned_warehouse_name || data.assignedWarehouseName || 'Unknown Warehouse',
+          warehouseType: data.warehouse_type || data.warehouseType || 'Unknown Type',
+          status: data.status || 'unknown',
+          tailorName: data.tailor_name || data.tailorName || 'Unknown Tailor',
+          tailorPhone: data.tailor_phone || data.tailorPhone || null,
+          fabricType: data.fabric_type || data.fabricType || 'Unknown Fabric',
+          estimatedWeight: data.estimated_weight || data.estimatedWeight || 0,
+          logisticsId: data.logistics_id || data.logisticsId,
+          isSelfAssigned: isSelfAssigned,
+          assignedByLogisticsId: data.assigned_by_logistics_id || data.assignedByLogisticsId || null,
+          assignedAt: data.assigned_at || data.assignedAt || null,
+          warehouseAddress: data.warehouse_address || data.warehouseAddress || null,
+          createdAt: data.created_at || data.createdAt || null,
+          pickupRequestId: data.pickup_request_id || data.pickupRequestId || null
+        }
+      })
+
+      // Get tailor pickup progress information
+      const tailorProgress = pickupAssignments.map(doc => {
+        const data = doc.data()
+        return {
+          id: doc.id,
+          pickupRequestId: data.pickup_request_id || data.pickupRequestId,
+          tailorName: data.tailor_name || data.tailorName || 'Unknown Tailor',
+          fabricType: data.fabric_type || data.fabricType || 'Unknown Fabric',
+          status: data.status || 'unknown',
+          warehouseAssigned: !!(data.assigned_warehouse_id || data.assignedWarehouseId),
+          warehouseName: data.assigned_warehouse_name || data.assignedWarehouseName || null,
+          logisticsId: data.logistics_id || data.logisticsId || 'Unknown',
+          estimatedWeight: data.estimated_weight || data.estimatedWeight || 0,
+          tailorPhone: data.tailor_phone || data.tailorPhone || null,
+          tailorAddress: data.tailor_address || data.tailorAddress || null
+        }
+      })
+
       // Identify issues
       const issues = []
       const totalActiveAssignments = activePickupAssignments.length + activeDeliveryAssignments.length
@@ -127,7 +175,9 @@ export default function LogisticsStatusCard() {
           id: doc.id,
           ...doc.data()
         })),
-        issues
+        issues,
+        warehouseAssignments: warehouseAssignments.slice(0, 5),
+        tailorProgress: tailorProgress.slice(0, 5)
       })
     } catch (err) {
       console.error('Error fetching logistics data:', err)
@@ -167,14 +217,21 @@ export default function LogisticsStatusCard() {
     return (
       <Card>
         <CardHeader>
-          <CardTitle>Logistics Status</CardTitle>
+          <CardTitle className="flex items-center">
+            <TruckIcon className="h-5 w-5 mr-2" />
+            Logistics Status
+          </CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="animate-pulse">
-            <div className="h-4 bg-gray-200 rounded w-3/4 mb-4"></div>
-            <div className="space-y-3">
-              {[1, 2, 3, 4].map((i) => (
-                <div key={i} className="h-8 bg-gray-200 rounded"></div>
+          <div className="animate-pulse space-y-4">
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+              {[...Array(4)].map((_, i) => (
+                <div key={i} className="h-20 bg-gray-200 rounded-lg"></div>
+              ))}
+            </div>
+            <div className="space-y-2">
+              {[...Array(3)].map((_, i) => (
+                <div key={i} className="h-4 bg-gray-200 rounded"></div>
               ))}
             </div>
           </div>
@@ -187,13 +244,15 @@ export default function LogisticsStatusCard() {
     return (
       <Card>
         <CardHeader>
-          <CardTitle>Logistics Status</CardTitle>
+          <CardTitle className="flex items-center">
+            <TruckIcon className="h-5 w-5 mr-2" />
+            Logistics Status
+          </CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="text-center text-red-600">
-            <ExclamationTriangleIcon className="h-8 w-8 mx-auto mb-2" />
-            <p>Error loading logistics data</p>
-            <p className="text-sm text-gray-500">{error}</p>
+          <div className="text-center py-4">
+            <ExclamationTriangleIcon className="h-8 w-8 text-red-500 mx-auto mb-2" />
+            <p className="text-red-600">Error loading logistics data: {error}</p>
           </div>
         </CardContent>
       </Card>
@@ -271,6 +330,215 @@ export default function LogisticsStatusCard() {
               <div className="space-y-2">
                 <p className="text-sm text-gray-700">Average delivery time: {logisticsData.averageDeliveryTime}h</p>
               </div>
+            </div>
+          </div>
+
+          {/* Warehouse Assignments */}
+          <div>
+            <h4 className="text-sm font-medium text-gray-900 mb-3 flex items-center">
+              <WarehouseIcon className="h-4 w-4 mr-2 text-blue-500" />
+              Warehouse Assignments
+            </h4>
+            <div className="space-y-2">
+              {logisticsData.warehouseAssignments.length > 0 ? (
+                logisticsData.warehouseAssignments.map((assignment) => (
+                  <div key={assignment.id} className="p-3 bg-blue-50 rounded-lg border border-blue-200">
+                    {/* Assignment Header with Status */}
+                    <div className="flex items-center justify-between mb-2">
+                      <div className="flex items-center space-x-2">
+                        <WarehouseIcon className="h-4 w-4 text-blue-500" />
+                        <span className="text-sm font-medium text-blue-700">
+                          Assignment #{assignment.id.slice(-6)}
+                        </span>
+                        {assignment.isSelfAssigned && (
+                          <span className="px-2 py-1 rounded-full text-xs font-medium text-green-600 bg-green-100">
+                            Self-Assigned ✓
+                          </span>
+                        )}
+                      </div>
+                      <span className="px-2 py-1 rounded-full text-xs font-medium text-blue-600 bg-blue-100">
+                        {assignment.status}
+                      </span>
+                    </div>
+                    
+                    {/* Warehouse Information */}
+                    <div className="mb-2 p-2 bg-blue-100 rounded border border-blue-300">
+                      <div className="flex items-center space-x-2 mb-1">
+                        <WarehouseIcon className="h-3 w-3 text-blue-600" />
+                        <span className="text-xs font-medium text-blue-700">Warehouse Details</span>
+                      </div>
+                      <div className="text-xs text-gray-700 ml-5">
+                        <div className="font-medium">{assignment.warehouseName}</div>
+                        <div>Type: {assignment.warehouseType}</div>
+                        {assignment.warehouseAddress && (
+                          <div>Location: {assignment.warehouseAddress.substring(0, 30)}...</div>
+                        )}
+                      </div>
+                    </div>
+                    
+                    {/* Logistics Personnel Information */}
+                    <div className="mb-2 p-2 bg-green-50 rounded border border-green-200">
+                      <div className="flex items-center space-x-2 mb-1">
+                        <UserIcon className="h-3 w-3 text-green-600" />
+                        <span className="text-xs font-medium text-green-700">Logistics Personnel</span>
+                        {assignment.isSelfAssigned && (
+                          <span className="px-1 py-0.5 rounded text-xs font-medium text-green-600 bg-green-100">
+                            Self-Assigned
+                          </span>
+                        )}
+                      </div>
+                      <div className="text-xs text-gray-600 ml-5">
+                        <div>ID: {assignment.logisticsId}</div>
+                        <div>Status: {assignment.status}</div>
+                        {assignment.isSelfAssigned && (
+                          <div className="text-green-600 font-medium mt-1">
+                            ✓ Logistics person assigned themselves to warehouse
+                          </div>
+                        )}
+                        {assignment.assignedAt && (
+                          <div>Assigned: {new Date(assignment.assignedAt).toLocaleDateString()}</div>
+                        )}
+                        {assignment.assignedByLogisticsId && assignment.assignedByLogisticsId === assignment.logisticsId && (
+                          <div className="text-green-600 font-medium">
+                            ✓ Self-assignment confirmed
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                    
+                    {/* Tailor Information */}
+                    <div className="p-2 bg-orange-50 rounded border border-orange-200">
+                      <div className="flex items-center space-x-2 mb-1">
+                        <ScissorsIcon className="h-3 w-3 text-orange-600" />
+                        <span className="text-xs font-medium text-orange-700">Pickup Details</span>
+                      </div>
+                      <div className="text-xs text-gray-600 ml-5">
+                        <div>Tailor: {assignment.tailorName}</div>
+                        <div>Fabric: {assignment.fabricType}</div>
+                        <div>Weight: {assignment.estimatedWeight}kg</div>
+                        {assignment.tailorPhone && (
+                          <div>Contact: {assignment.tailorPhone}</div>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Assignment Timeline */}
+                    {(assignment.assignedAt || assignment.createdAt) && (
+                      <div className="mt-2 p-2 bg-gray-50 rounded border border-gray-200">
+                        <div className="flex items-center space-x-2 mb-1">
+                          <ClockIcon className="h-3 w-3 text-gray-600" />
+                          <span className="text-xs font-medium text-gray-700">Timeline</span>
+                        </div>
+                        <div className="text-xs text-gray-600 ml-5">
+                          {assignment.createdAt && (
+                            <div>Created: {new Date(assignment.createdAt).toLocaleString()}</div>
+                          )}
+                          {assignment.assignedAt && (
+                            <div className="text-green-600 font-medium">
+                              Warehouse Assigned: {new Date(assignment.assignedAt).toLocaleString()}
+                            </div>
+                          )}
+                          {assignment.isSelfAssigned && (
+                            <div className="text-blue-600 font-medium">
+                              ⚡ Real-time assignment by logistics personnel
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                ))
+              ) : (
+                <p className="text-sm text-gray-500">No warehouse assignments found</p>
+              )}
+            </div>
+          </div>
+
+          {/* Tailor Pickup Progress */}
+          <div>
+            <h4 className="text-sm font-medium text-gray-900 mb-3 flex items-center">
+              <ScissorsIcon className="h-4 w-4 mr-2 text-orange-500" />
+              Tailor Pickup Progress
+            </h4>
+            <div className="space-y-2">
+              {logisticsData.tailorProgress.length > 0 ? (
+                logisticsData.tailorProgress.map((progress) => (
+                  <div key={progress.id} className="p-3 bg-orange-50 rounded-lg border border-orange-200">
+                    {/* Tailor Information */}
+                    <div className="flex items-center justify-between mb-2">
+                      <div className="flex items-center space-x-2">
+                        <ScissorsIcon className="h-4 w-4 text-orange-500" />
+                        <div className="flex flex-col">
+                          <span className="text-sm text-gray-700 font-medium">
+                            {progress.tailorName}
+                          </span>
+                          <span className="text-xs text-gray-500">
+                            Fabric: {progress.fabricType} • Weight: {progress.estimatedWeight}kg
+                          </span>
+                        </div>
+                      </div>
+                      <div className="flex items-center space-x-2">
+                        <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                          progress.warehouseAssigned 
+                            ? 'text-green-600 bg-green-100' 
+                            : 'text-orange-600 bg-orange-100'
+                        }`}>
+                          {progress.warehouseAssigned ? 'Assigned' : 'Pending'}
+                        </span>
+                        <span className="text-xs text-gray-500">
+                          #{progress.id.slice(-6)}
+                        </span>
+                      </div>
+                    </div>
+                    
+                    {/* Logistics Personnel Information */}
+                    <div className="mb-2 p-2 bg-green-50 rounded border border-green-200">
+                      <div className="flex items-center space-x-2 mb-1">
+                        <UserIcon className="h-3 w-3 text-green-600" />
+                        <span className="text-xs font-medium text-green-700">Logistics Personnel</span>
+                      </div>
+                      <div className="text-xs text-gray-600 ml-5">
+                        <div>ID: {progress.logisticsId}</div>
+                        <div>Status: {progress.status}</div>
+                      </div>
+                    </div>
+                    
+                    {/* Warehouse Assignment Status */}
+                    <div className="p-2 bg-blue-50 rounded border border-blue-200">
+                      <div className="flex items-center space-x-2 mb-1">
+                        <WarehouseIcon className="h-3 w-3 text-blue-600" />
+                        <span className="text-xs font-medium text-blue-700">Warehouse Assignment</span>
+                      </div>
+                      <div className="text-xs text-gray-600 ml-5">
+                        {progress.warehouseAssigned ? (
+                          <div>
+                            <div>✓ Assigned to: {progress.warehouseName}</div>
+                            <div>Status: {progress.status}</div>
+                          </div>
+                        ) : (
+                          <div className="text-orange-600">⏳ Pending warehouse assignment</div>
+                        )}
+                      </div>
+                    </div>
+                    
+                    {/* Tailor Contact Information */}
+                    {(progress.tailorPhone || progress.tailorAddress) && (
+                      <div className="p-2 bg-gray-50 rounded border border-gray-200">
+                        <div className="flex items-center space-x-2 mb-1">
+                          <ScissorsIcon className="h-3 w-3 text-gray-600" />
+                          <span className="text-xs font-medium text-gray-700">Tailor Contact</span>
+                        </div>
+                        <div className="text-xs text-gray-600 ml-5">
+                          {progress.tailorPhone && <div>Phone: {progress.tailorPhone}</div>}
+                          {progress.tailorAddress && <div>Address: {progress.tailorAddress.substring(0, 50)}...</div>}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                ))
+              ) : (
+                <p className="text-sm text-gray-500">No tailor pickup progress</p>
+              )}
             </div>
           </div>
 

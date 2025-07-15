@@ -41,17 +41,39 @@ class UserModel {
       
       if (roleStr != null && roleStr.isNotEmpty) {
         try {
+          // Try exact match first
           parsedRole = UserRole.values.firstWhere(
             (e) => e.toString().split('.').last.toLowerCase() == roleStr.toLowerCase(),
             orElse: () {
-              print('⚠️ [UserModel] Unknown role "$roleStr", defaulting to customer');
+              print('⚠️ [UserModel] Exact match failed for "$roleStr", trying partial match');
               return UserRole.customer;
             },
           );
           print('✅ [UserModel] Successfully parsed role from JSON: $parsedRole');
         } catch (e) {
-          print('❌ [UserModel] Error parsing role: $e, defaulting to customer');
-          parsedRole = UserRole.customer;
+          print('❌ [UserModel] Error parsing role: $e, trying fallback methods');
+          
+          // Try partial matching as fallback
+          final lowerRoleStr = roleStr.toLowerCase();
+          if (lowerRoleStr.contains('tailor')) {
+            parsedRole = UserRole.tailor;
+            print('✅ [UserModel] Fallback: Detected tailor role');
+          } else if (lowerRoleStr.contains('admin')) {
+            parsedRole = UserRole.admin;
+            print('✅ [UserModel] Fallback: Detected admin role');
+          } else if (lowerRoleStr.contains('logistics')) {
+            parsedRole = UserRole.logistics;
+            print('✅ [UserModel] Fallback: Detected logistics role');
+          } else if (lowerRoleStr.contains('warehouse')) {
+            parsedRole = UserRole.warehouse;
+            print('✅ [UserModel] Fallback: Detected warehouse role');
+          } else if (lowerRoleStr.contains('volunteer')) {
+            parsedRole = UserRole.volunteer;
+            print('✅ [UserModel] Fallback: Detected volunteer role');
+          } else {
+            print('⚠️ [UserModel] No role match found for "$roleStr", defaulting to customer');
+            parsedRole = UserRole.customer;
+          }
         }
       } else {
         print('⚠️ [UserModel] No role in JSON, defaulting to customer');
@@ -88,7 +110,7 @@ class UserModel {
         createdAt = DateTime.now();
       }
 
-      return UserModel(
+      final user = UserModel(
         id: id,
         email: email,
         name: name,
@@ -98,6 +120,9 @@ class UserModel {
         isActive: isActive,
         createdAt: createdAt,
       );
+      
+      print('✅ [UserModel] Successfully created user: ${user.name} (${user.role})');
+      return user;
     } catch (e) {
       print('❌ [UserModel] Critical error in fromJson: $e');
       print('❌ [UserModel] JSON data: $json');

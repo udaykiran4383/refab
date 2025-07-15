@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../providers/admin_provider.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import '../../providers/admin_provider.dart';
 
 class ProductsPage extends ConsumerStatefulWidget {
   const ProductsPage({super.key});
@@ -31,13 +32,15 @@ class _ProductsPageState extends ConsumerState<ProductsPage> {
                 size: 32,
               ),
               const SizedBox(width: 12),
-              Text(
-                'Product Management',
-                style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                  fontWeight: FontWeight.bold,
+              Expanded(
+                child: Text(
+                  'Product Management',
+                  style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                    fontWeight: FontWeight.bold,
+                  ),
+                  overflow: TextOverflow.ellipsis,
                 ),
               ),
-              const Spacer(),
               ElevatedButton.icon(
                 onPressed: () => _showAddProductDialog(context),
                 icon: const Icon(Icons.add),
@@ -86,17 +89,22 @@ class _ProductsPageState extends ConsumerState<ProductsPage> {
     return Card(
       child: Padding(
         padding: const EdgeInsets.all(16),
-        child: Row(
+        child: Wrap(
+          spacing: 12,
+          runSpacing: 8,
+          crossAxisAlignment: WrapCrossAlignment.center,
           children: [
-            // Search
-            Expanded(
-              flex: 2,
+            SizedBox(
+              width: 160,
               child: TextField(
                 decoration: const InputDecoration(
                   hintText: 'Search products...',
-                  prefixIcon: Icon(Icons.search),
+                  prefixIcon: Icon(Icons.search, size: 18),
                   border: OutlineInputBorder(),
+                  isDense: true,
+                  contentPadding: EdgeInsets.symmetric(vertical: 8, horizontal: 8),
                 ),
+                style: const TextStyle(fontSize: 13),
                 onChanged: (value) {
                   setState(() {
                     _searchQuery = value;
@@ -104,19 +112,23 @@ class _ProductsPageState extends ConsumerState<ProductsPage> {
                 },
               ),
             ),
-            const SizedBox(width: 16),
-            // Category Filter
-            Expanded(
+            SizedBox(
+              width: 120,
               child: DropdownButtonFormField<String>(
                 decoration: const InputDecoration(
                   labelText: 'Category',
                   border: OutlineInputBorder(),
+                  isDense: true,
+                  contentPadding: EdgeInsets.symmetric(vertical: 8, horizontal: 8),
                 ),
                 value: _selectedCategory,
                 items: ['All', 'Clothing', 'Accessories', 'Home', 'Other'].map((category) {
                   return DropdownMenuItem(
                     value: category,
-                    child: Text(category),
+                    child: Text(
+                      category.toUpperCase(),
+                      style: const TextStyle(fontSize: 12, color: Colors.green, fontWeight: FontWeight.bold),
+                    ),
                   );
                 }).toList(),
                 onChanged: (value) {
@@ -124,6 +136,7 @@ class _ProductsPageState extends ConsumerState<ProductsPage> {
                     _selectedCategory = value!;
                   });
                 },
+                style: const TextStyle(fontSize: 12, color: Colors.green, fontWeight: FontWeight.bold),
               ),
             ),
           ],
@@ -166,14 +179,14 @@ class _ProductsPageState extends ConsumerState<ProductsPage> {
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                   decoration: BoxDecoration(
-                    color: Colors.blue.withOpacity(0.2),
+                    color: Colors.green.withOpacity(0.2),
                     borderRadius: BorderRadius.circular(12),
                   ),
                   child: Text(
                     product['category']?.toString().toUpperCase() ?? 'UNKNOWN',
                     style: const TextStyle(
                       fontSize: 10,
-                      color: Colors.blue,
+                      color: Colors.green,
                       fontWeight: FontWeight.bold,
                     ),
                   ),
@@ -263,33 +276,340 @@ class _ProductsPageState extends ConsumerState<ProductsPage> {
   }
 
   void _showAddProductDialog(BuildContext context) {
+    final _formKey = GlobalKey<FormState>();
+    final _nameController = TextEditingController();
+    final _descriptionController = TextEditingController();
+    final _priceController = TextEditingController();
+    final _stockController = TextEditingController();
+    String _selectedCategory = 'Clothing';
+    bool _isLoading = false;
+
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Add Product'),
-        content: const Text('Product creation functionality will be implemented here.'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(),
-            child: const Text('Close'),
+      builder: (context) => StatefulBuilder(
+        builder: (context, setState) => AlertDialog(
+          title: const Text('Add New Product'),
+          content: Form(
+            key: _formKey,
+            child: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  TextFormField(
+                    controller: _nameController,
+                    decoration: const InputDecoration(
+                      labelText: 'Product Name',
+                      border: OutlineInputBorder(),
+                    ),
+                    validator: (value) {
+                      if (value == null || value.isEmpty) {
+                        return 'Please enter product name';
+                      }
+                      return null;
+                    },
+                  ),
+                  const SizedBox(height: 16),
+                  TextFormField(
+                    controller: _descriptionController,
+                    decoration: const InputDecoration(
+                      labelText: 'Description',
+                      border: OutlineInputBorder(),
+                    ),
+                    maxLines: 3,
+                    validator: (value) {
+                      if (value == null || value.isEmpty) {
+                        return 'Please enter description';
+                      }
+                      return null;
+                    },
+                  ),
+                  const SizedBox(height: 16),
+                  TextFormField(
+                    controller: _priceController,
+                    decoration: const InputDecoration(
+                      labelText: 'Price (₹)',
+                      border: OutlineInputBorder(),
+                    ),
+                    keyboardType: TextInputType.number,
+                    validator: (value) {
+                      if (value == null || value.isEmpty) {
+                        return 'Please enter price';
+                      }
+                      if (double.tryParse(value) == null) {
+                        return 'Please enter a valid number';
+                      }
+                      return null;
+                    },
+                  ),
+                  const SizedBox(height: 16),
+                  TextFormField(
+                    controller: _stockController,
+                    decoration: const InputDecoration(
+                      labelText: 'Stock Quantity',
+                      border: OutlineInputBorder(),
+                    ),
+                    keyboardType: TextInputType.number,
+                    validator: (value) {
+                      if (value == null || value.isEmpty) {
+                        return 'Please enter stock quantity';
+                      }
+                      if (int.tryParse(value) == null) {
+                        return 'Please enter a valid number';
+                      }
+                      return null;
+                    },
+                  ),
+                  const SizedBox(height: 16),
+                  DropdownButtonFormField<String>(
+                    decoration: const InputDecoration(
+                      labelText: 'Category',
+                      border: OutlineInputBorder(),
+                    ),
+                    value: _selectedCategory,
+                    items: ['Clothing', 'Accessories', 'Home', 'Other'].map((category) {
+                      return DropdownMenuItem(
+                        value: category,
+                        child: Text(category),
+                      );
+                    }).toList(),
+                    onChanged: (value) {
+                      setState(() {
+                        _selectedCategory = value!;
+                      });
+                    },
+                  ),
+                ],
+              ),
+            ),
           ),
-        ],
+          actions: [
+            TextButton(
+              onPressed: _isLoading ? null : () => Navigator.of(context).pop(),
+              child: const Text('Cancel'),
+            ),
+            ElevatedButton(
+              onPressed: _isLoading
+                  ? null
+                  : () async {
+                      if (_formKey.currentState!.validate()) {
+                        setState(() {
+                          _isLoading = true;
+                        });
+
+                        try {
+                          final productData = {
+                            'name': _nameController.text,
+                            'description': _descriptionController.text,
+                            'price': double.tryParse(_priceController.text) ?? 0.0,
+                            'stock': int.tryParse(_stockController.text) ?? 0,
+                            'category': _selectedCategory,
+                            'created_at': DateTime.now(),
+                            'updated_at': DateTime.now(),
+                          };
+
+                          // Add to Firestore
+                          await FirebaseFirestore.instance.collection('products').add(productData);
+                          
+                          Navigator.of(context).pop();
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text('Product created successfully!'),
+                              backgroundColor: Colors.green,
+                            ),
+                          );
+                        } catch (e) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text('Error: $e'),
+                              backgroundColor: Colors.red,
+                            ),
+                          );
+                        } finally {
+                          setState(() {
+                            _isLoading = false;
+                          });
+                        }
+                      }
+                    },
+              child: _isLoading
+                  ? const SizedBox(
+                      width: 20,
+                      height: 20,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : const Text('Create Product'),
+            ),
+          ],
+        ),
       ),
     );
   }
 
   void _showEditProductDialog(BuildContext context, Map<String, dynamic> product) {
+    final _formKey = GlobalKey<FormState>();
+    final _nameController = TextEditingController(text: product['name'] ?? '');
+    final _descriptionController = TextEditingController(text: product['description'] ?? '');
+    final _priceController = TextEditingController(text: product['price']?.toString() ?? '');
+    final _stockController = TextEditingController(text: product['stock']?.toString() ?? '');
+    String _selectedCategory = product['category'] ?? 'Clothing';
+    bool _isLoading = false;
+
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
-        title: Text('Edit Product - ${product['name']}'),
-        content: const Text('Product editing functionality will be implemented here.'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(),
-            child: const Text('Close'),
+      builder: (context) => StatefulBuilder(
+        builder: (context, setState) => AlertDialog(
+          title: Text('Edit Product - ${product['name']}'),
+          content: Form(
+            key: _formKey,
+            child: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  TextFormField(
+                    controller: _nameController,
+                    decoration: const InputDecoration(
+                      labelText: 'Product Name',
+                      border: OutlineInputBorder(),
+                    ),
+                    validator: (value) {
+                      if (value == null || value.isEmpty) {
+                        return 'Please enter product name';
+                      }
+                      return null;
+                    },
+                  ),
+                  const SizedBox(height: 16),
+                  TextFormField(
+                    controller: _descriptionController,
+                    decoration: const InputDecoration(
+                      labelText: 'Description',
+                      border: OutlineInputBorder(),
+                    ),
+                    maxLines: 3,
+                    validator: (value) {
+                      if (value == null || value.isEmpty) {
+                        return 'Please enter description';
+                      }
+                      return null;
+                    },
+                  ),
+                  const SizedBox(height: 16),
+                  TextFormField(
+                    controller: _priceController,
+                    decoration: const InputDecoration(
+                      labelText: 'Price (₹)',
+                      border: OutlineInputBorder(),
+                    ),
+                    keyboardType: TextInputType.number,
+                    validator: (value) {
+                      if (value == null || value.isEmpty) {
+                        return 'Please enter price';
+                      }
+                      if (double.tryParse(value) == null) {
+                        return 'Please enter a valid number';
+                      }
+                      return null;
+                    },
+                  ),
+                  const SizedBox(height: 16),
+                  TextFormField(
+                    controller: _stockController,
+                    decoration: const InputDecoration(
+                      labelText: 'Stock Quantity',
+                      border: OutlineInputBorder(),
+                    ),
+                    keyboardType: TextInputType.number,
+                    validator: (value) {
+                      if (value == null || value.isEmpty) {
+                        return 'Please enter stock quantity';
+                      }
+                      if (int.tryParse(value) == null) {
+                        return 'Please enter a valid number';
+                      }
+                      return null;
+                    },
+                  ),
+                  const SizedBox(height: 16),
+                  DropdownButtonFormField<String>(
+                    decoration: const InputDecoration(
+                      labelText: 'Category',
+                      border: OutlineInputBorder(),
+                    ),
+                    value: _selectedCategory,
+                    items: ['Clothing', 'Accessories', 'Home', 'Other'].map((category) {
+                      return DropdownMenuItem(
+                        value: category,
+                        child: Text(category),
+                      );
+                    }).toList(),
+                    onChanged: (value) {
+                      setState(() {
+                        _selectedCategory = value!;
+                      });
+                    },
+                  ),
+                ],
+              ),
+            ),
           ),
-        ],
+          actions: [
+            TextButton(
+              onPressed: _isLoading ? null : () => Navigator.of(context).pop(),
+              child: const Text('Cancel'),
+            ),
+            ElevatedButton(
+              onPressed: _isLoading
+                  ? null
+                  : () async {
+                      if (_formKey.currentState!.validate()) {
+                        setState(() {
+                          _isLoading = true;
+                        });
+
+                        try {
+                          final productData = {
+                            'name': _nameController.text,
+                            'description': _descriptionController.text,
+                            'price': double.tryParse(_priceController.text) ?? 0.0,
+                            'stock': int.tryParse(_stockController.text) ?? 0,
+                            'category': _selectedCategory,
+                            'updated_at': DateTime.now(),
+                          };
+
+                          // Update in Firestore
+                          await FirebaseFirestore.instance.collection('products').doc(product['id']).update(productData);
+                          
+                          Navigator.of(context).pop();
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text('Product updated successfully!'),
+                              backgroundColor: Colors.green,
+                            ),
+                          );
+                        } catch (e) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text('Error: $e'),
+                              backgroundColor: Colors.red,
+                            ),
+                          );
+                        } finally {
+                          setState(() {
+                            _isLoading = false;
+                          });
+                        }
+                      }
+                    },
+              child: _isLoading
+                  ? const SizedBox(
+                      width: 20,
+                      height: 20,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : const Text('Update Product'),
+            ),
+          ],
+        ),
       ),
     );
   }

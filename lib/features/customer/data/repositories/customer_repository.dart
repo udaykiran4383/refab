@@ -23,7 +23,7 @@ class CustomerRepository {
         .map((snapshot) {
           var products = snapshot.docs
               .map((doc) => ProductModel.fromJson({
-                    ...doc.data(),
+                    ...(doc.data() as Map<String, dynamic>),
                     'id': doc.id,
                   }))
               .toList();
@@ -44,7 +44,7 @@ class CustomerRepository {
       final doc = await _firestore.collection('products').doc(productId).get();
       if (doc.exists) {
         return ProductModel.fromJson({
-          ...doc.data()!,
+          ...(doc.data()! as Map<String, dynamic>),
           'id': doc.id,
         });
       }
@@ -64,7 +64,7 @@ class CustomerRepository {
         final cartData = cartDoc.data()!;
         final items = List<Map<String, dynamic>>.from(cartData['items'] ?? []);
         
-        final existingIndex = items.indexWhere((item) => item['productId'] == item.productId);
+        final existingIndex = items.indexWhere((cartItem) => cartItem['productId'] == item.productId);
         if (existingIndex >= 0) {
           items[existingIndex]['quantity'] = (items[existingIndex]['quantity'] ?? 0) + item.quantity;
         } else {
@@ -179,7 +179,7 @@ class CustomerRepository {
         .snapshots()
         .map((snapshot) => snapshot.docs
             .map((doc) => OrderModel.fromJson({
-                  ...doc.data(),
+                  ...(doc.data() as Map<String, dynamic>),
                   'id': doc.id,
                 }))
             .toList());
@@ -190,7 +190,7 @@ class CustomerRepository {
       final doc = await _firestore.collection('orders').doc(orderId).get();
       if (doc.exists) {
         return OrderModel.fromJson({
-          ...doc.data()!,
+          ...(doc.data()! as Map<String, dynamic>),
           'id': doc.id,
         });
       }
@@ -281,32 +281,6 @@ class CustomerRepository {
     }
   }
 
-  Future<void> updateCustomerProfile(String customerId, Map<String, dynamic> updates) async {
-    try {
-      await _firestore.collection('customerProfiles').doc(customerId).update({
-        ...updates,
-        'updatedAt': DateTime.now().toIso8601String(),
-      });
-    } catch (e) {
-      throw Exception('Failed to update customer profile: $e');
-    }
-  }
-
-  Future<CustomerProfileModel?> getCustomerProfile(String customerId) async {
-    try {
-      final doc = await _firestore.collection('customerProfiles').doc(customerId).get();
-      if (doc.exists) {
-        return CustomerProfileModel.fromJson({
-          ...doc.data()!,
-          'id': doc.id,
-        });
-      }
-      return null;
-    } catch (e) {
-      throw Exception('Failed to get customer profile: $e');
-    }
-  }
-
   Stream<CustomerProfileModel?> getCustomerProfileStream(String customerId) {
     return _firestore
         .collection('customerProfiles')
@@ -315,7 +289,7 @@ class CustomerRepository {
         .map((doc) {
           if (doc.exists) {
             return CustomerProfileModel.fromJson({
-              ...doc.data()!,
+              ...(doc.data()! as Map<String, dynamic>),
               'id': doc.id,
             });
           }
@@ -341,7 +315,7 @@ class CustomerRepository {
       final doc = await _firestore.collection('customerAnalytics').doc(customerId).get();
       if (doc.exists) {
         return CustomerAnalyticsModel.fromJson({
-          ...doc.data()!,
+          ...(doc.data()! as Map<String, dynamic>),
           'customerId': doc.id,
         });
       }
@@ -352,36 +326,6 @@ class CustomerRepository {
   }
 
   // Advanced Product Features
-  Stream<List<ProductModel>> getRecommendedProducts(String customerId, {int limit = 10}) async* {
-    try {
-      final profile = await getCustomerProfile(customerId);
-      final analytics = await getCustomerAnalytics(customerId);
-      
-      if (profile != null && analytics != null) {
-        final preferences = profile.preferences;
-        final topCategories = analytics.topCategories;
-        
-        Query query = _firestore.collection('products').where('isAvailable', isEqualTo: true);
-        
-        if (preferences.isNotEmpty) {
-          query = query.where('category', whereIn: preferences.take(10).toList());
-        }
-        
-        yield* query
-            .limit(limit)
-            .snapshots()
-            .map((snapshot) => snapshot.docs
-                .map((doc) => ProductModel.fromJson({
-                      ...doc.data(),
-                      'id': doc.id,
-                    }))
-                .toList());
-      }
-    } catch (e) {
-      throw Exception('Failed to get recommended products: $e');
-    }
-  }
-
   Stream<List<ProductModel>> getTrendingProducts({int limit = 10}) {
     return _firestore
         .collection('products')
@@ -391,7 +335,7 @@ class CustomerRepository {
         .snapshots()
         .map((snapshot) => snapshot.docs
             .map((doc) => ProductModel.fromJson({
-                  ...doc.data(),
+                  ...(doc.data() as Map<String, dynamic>),
                   'id': doc.id,
                 }))
             .toList());
@@ -420,7 +364,7 @@ class CustomerRepository {
 
       return snapshot.docs
           .map((doc) => OrderModel.fromJson({
-                ...doc.data(),
+                ...(doc.data() as Map<String, dynamic>),
                 'id': doc.id,
               }))
           .toList();
@@ -457,7 +401,7 @@ class CustomerRepository {
         .map((snapshot) {
           var customers = snapshot.docs
               .map((doc) => CustomerProfileModel.fromJson({
-                    ...doc.data(),
+                    ...(doc.data() as Map<String, dynamic>),
                     'id': doc.id,
                   }))
               .toList();
@@ -596,7 +540,7 @@ class CustomerRepository {
         .snapshots()
         .map((snapshot) => snapshot.docs
             .map((doc) => {
-                  ...doc.data(),
+                  ...(doc.data() as Map<String, dynamic>),
                   'id': doc.id,
                 })
             .toList());

@@ -1,7 +1,7 @@
 enum InventoryStatus { processing, graded, ready, used, lowStock, reserved, damaged }
 
 class InventoryModel {
-  final String id;
+  final String? id; // Make id optional
   final String warehouseId;
   final String pickupId;
   final String fabricCategory;
@@ -22,7 +22,7 @@ class InventoryModel {
   final DateTime? updatedAt;
 
   InventoryModel({
-    required this.id,
+    this.id, // Make id optional
     required this.warehouseId,
     required this.pickupId,
     required this.fabricCategory,
@@ -45,7 +45,7 @@ class InventoryModel {
 
   factory InventoryModel.fromJson(Map<String, dynamic> json) {
     return InventoryModel(
-      id: json['id'],
+      id: json['id'], // Can be null for new items
       warehouseId: json['warehouseId'],
       pickupId: json['pickupId'],
       fabricCategory: json['fabricCategory'],
@@ -78,7 +78,7 @@ class InventoryModel {
 
   Map<String, dynamic> toJson() {
     return {
-      'id': id,
+      if (id != null) 'id': id, // Only include id if it exists
       'warehouseId': warehouseId,
       'pickupId': pickupId,
       'fabricCategory': fabricCategory,
@@ -122,7 +122,7 @@ class InventoryModel {
     DateTime? updatedAt,
   }) {
     return InventoryModel(
-      id: id ?? this.id,
+      id: id ?? this.id, // Handle nullable id
       warehouseId: warehouseId ?? this.warehouseId,
       pickupId: pickupId ?? this.pickupId,
       fabricCategory: fabricCategory ?? this.fabricCategory,

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../providers/admin_provider.dart';
+import '../../providers/admin_provider.dart';
+import '../../../auth/providers/auth_provider.dart';
 
 class SystemHealthPage extends ConsumerStatefulWidget {
   const SystemHealthPage({super.key});
@@ -64,13 +65,13 @@ class _SystemHealthPageState extends ConsumerState<SystemHealthPage> {
                       ),
                       const SizedBox(width: 8),
                       Text(
-                        'System Status: ${health['systemStatus']?.toString().toUpperCase() ?? 'UNKNOWN'}',
+                        'System Status: ${health['status']?.toString().toUpperCase() ?? 'UNKNOWN'}',
                         style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
                       ),
                     ],
                   ),
                   const SizedBox(height: 8),
-                  Text('Last Updated: ${_formatTimeAgo(health['lastUpdated'])}'),
+                  Text('Last Updated: ${_formatTimeAgo(health['lastBackup'])}'),
                 ],
               ),
             ),
@@ -88,17 +89,17 @@ class _SystemHealthPageState extends ConsumerState<SystemHealthPage> {
                   const SizedBox(height: 16),
                   Row(
                     children: [
-                      Expanded(child: _buildStatCard('Total Users', health['totalUsers'].toString(), Icons.people, Colors.blue)),
+                      Expanded(child: _buildStatCard('Active Users', health['activeUsers'].toString(), Icons.people, Colors.blue)),
                       const SizedBox(width: 16),
-                      Expanded(child: _buildStatCard('Total Pickups', health['totalPickupRequests'].toString(), Icons.local_shipping, Colors.orange)),
+                      Expanded(child: _buildStatCard('Database Size', health['databaseSize'] ?? '0 GB', Icons.storage, Colors.orange)),
                     ],
                   ),
                   const SizedBox(height: 16),
                   Row(
                     children: [
-                      Expanded(child: _buildStatCard('Total Orders', health['totalOrders'].toString(), Icons.shopping_cart, Colors.green)),
+                      Expanded(child: _buildStatCard('Uptime', health['uptime'] ?? '0%', Icons.timer, Colors.green)),
                       const SizedBox(width: 16),
-                      Expanded(child: _buildStatCard('Total Products', health['totalProducts'].toString(), Icons.inventory, Colors.purple)),
+                      Expanded(child: _buildStatCard('Last Backup', _formatTimeAgo(health['lastBackup']), Icons.backup, Colors.purple)),
                     ],
                   ),
                 ],
@@ -128,7 +129,7 @@ class _SystemHealthPageState extends ConsumerState<SystemHealthPage> {
                     children: [
                       Expanded(child: _buildStatCard('New Orders', health['recentOrders'].toString(), Icons.shopping_cart, Colors.green)),
                       const SizedBox(width: 16),
-                      Expanded(child: _buildStatCard('', '', Icons.space_bar, Colors.transparent), // Empty space
+                      Expanded(child: _buildStatCard('', '', Icons.space_bar, Colors.transparent)), // Empty space
                     ],
                   ),
                 ],
@@ -192,6 +193,22 @@ class _SystemHealthPageState extends ConsumerState<SystemHealthPage> {
                 ),
               ),
             ],
+          ),
+          const SizedBox(height: 16),
+          
+          // Logout Button
+          SizedBox(
+            width: double.infinity,
+            child: ElevatedButton.icon(
+              onPressed: () => _logout(),
+              icon: const Icon(Icons.logout),
+              label: const Text('Logout'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.red,
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(vertical: 16),
+              ),
+            ),
           ),
         ],
       ),
@@ -297,5 +314,28 @@ class _SystemHealthPageState extends ConsumerState<SystemHealthPage> {
         ],
       ),
     );
+  }
+
+  void _logout() async {
+    try {
+      await ref.read(authServiceProvider).signOut();
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Logged out successfully!'),
+            backgroundColor: Colors.green,
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Logout failed: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
   }
 } 

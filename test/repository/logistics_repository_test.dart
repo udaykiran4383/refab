@@ -7,7 +7,9 @@ import 'package:refab_app/features/logistics/data/models/logistics_analytics_mod
 import 'package:refab_app/features/tailor/data/models/pickup_request_model.dart';
 import '../test_helper.dart';
 
-void main() {
+void main() async {
+  TestWidgetsFlutterBinding.ensureInitialized();
+  await Firebase.initializeApp();
   setUpAll(() async {
     await TestHelper.setupFirebaseForTesting();
   });

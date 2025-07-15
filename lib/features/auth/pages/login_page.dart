@@ -242,7 +242,9 @@ class _LoginPageState extends ConsumerState<LoginPage>
                                   labelText: 'Role',
                                   prefixIcon: Icon(Icons.work),
                                 ),
-                                items: UserRole.values.map((role) {
+                                items: UserRole.values
+                                    .where((role) => role != UserRole.warehouse) // Exclude warehouse role
+                                    .map((role) {
                                   return DropdownMenuItem(
                                     value: role,
                                     child: Text(_getRoleDisplayName(role)),

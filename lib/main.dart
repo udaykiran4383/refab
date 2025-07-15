@@ -34,7 +34,7 @@ void main() async {
   
   print('🚀 [MAIN] Starting app with ProviderScope...');
   runApp(
-    const ProviderScope(
+    ProviderScope(
       child: ReFabApp(),
     ),
   );

@@ -29,6 +29,28 @@ import { WifiSlashIcon } from '@heroicons/react/24/solid'
 import { formatDistanceToNow } from 'date-fns'
 import toast from 'react-hot-toast'
 
+// DEV_MODE: Set to true to always show sample data (for development/testing)
+const DEV_MODE = false;
+
+// Sample/mock data for fallback
+const SAMPLE_STATS = {
+  totalUsers: 42,
+  totalPickups: 17,
+  totalProducts: 8,
+  totalOrders: 23,
+  pickupAssignments: 5,
+  deliveryAssignments: 4,
+  activePickupAssignments: 2,
+  activeDeliveryAssignments: 1,
+  recentPickups: [
+    { id: 'PU123456', customerName: 'Alice', status: 'pending', createdAt: new Date() },
+    { id: 'PU123457', customerName: 'Bob', status: 'completed', createdAt: new Date(Date.now() - 3600 * 1000) },
+    { id: 'PU123458', customerName: 'Charlie', status: 'inProgress', createdAt: new Date(Date.now() - 2 * 3600 * 1000) },
+  ],
+  pendingPickups: 3,
+  completedPickups: 10,
+};
+
 export default function Dashboard() {
   const [stats, setStats] = useState({
     totalUsers: 0,
@@ -51,6 +73,12 @@ export default function Dashboard() {
     )
 
     try {
+      if (DEV_MODE) {
+        setStats(SAMPLE_STATS)
+        setError(null)
+        setLastUpdated(new Date())
+        return
+      }
       console.log('🔄 Starting fetchStats...')
       console.log('📊 Current Firebase config:', {
         projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID || 'refab-app'
@@ -166,6 +194,10 @@ export default function Dashboard() {
         stack: err.stack
       })
       setError(err.message)
+      // Fallback: Show sample data if in dev or if all stats are zero
+      if (DEV_MODE || (stats.totalUsers === 0 && stats.totalPickups === 0 && stats.totalProducts === 0 && stats.totalOrders === 0)) {
+        setStats(SAMPLE_STATS)
+      }
     } finally {
       console.log('🏁 fetchStats completed, setting loading to false')
       setLoading(false)

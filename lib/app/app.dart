@@ -6,20 +6,22 @@ import '../features/auth/pages/login_page.dart';
 import '../features/dashboard/pages/dashboard_page.dart';
 import '../features/tailor/pages/pickup_request_page.dart';
 import '../features/customer/pages/products_page.dart';
-import '../features/admin/pages/admin_page.dart';
+import '../features/admin/presentation/pages/admin_page.dart';
 import '../features/customer/presentation/pages/profile_page.dart';
 import '../features/customer/presentation/pages/my_orders_page.dart';
 import '../features/customer/presentation/pages/cart_page.dart';
+import '../test_single_assignment_in_app.dart';
+import '../test_all_changes_in_app.dart';
+import '../test_registration_routing.dart';
 import 'theme.dart';
+import '../features/auth/data/models/user_model.dart';
 
 class ReFabApp extends ConsumerWidget {
-  const ReFabApp({super.key});
+  ReFabApp({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    print('🏗️ [APP] Building ReFabApp...');
     final authState = ref.watch(authStateProvider);
-    print('🏗️ [APP] Auth state: $authState');
     
     return MaterialApp.router(
       title: 'ReFab',
@@ -32,22 +34,53 @@ class ReFabApp extends ConsumerWidget {
   GoRouter _createRouter(AsyncValue authState) {
     print('🛣️ [ROUTER] Creating GoRouter with auth state: $authState');
     return GoRouter(
-      initialLocation: '/login',
+      initialLocation: '/dashboard',
       redirect: (context, state) {
-        print('🛣️ [ROUTER] Redirect called for path: \\${state.uri.path}');
+        print('🛣️ [ROUTER] Redirect called for path: ${state.uri.path}');
         return authState.when(
           data: (user) {
-            print('🛣️ [ROUTER] Auth state data - User: \\${user?.name ?? 'null'} (\\${user?.email ?? 'null'})');
+            print('🛣️ [ROUTER] Auth state data - User: ${user?.name ?? 'null'} (${user?.email ?? 'null'})');
             print('🛣️ [ROUTER] User role: ${user?.role ?? 'null'}');
             
+            // If no user and not on login page, redirect to login
             if (user == null && state.uri.path != '/login') {
               print('🛣️ [ROUTER] ⚠️ No user, redirecting to /login');
               return '/login';
             }
+            
+            // If user is authenticated and on login page, redirect to dashboard
             if (user != null && state.uri.path == '/login') {
               print('🛣️ [ROUTER] ✅ User authenticated, redirecting to /dashboard');
               return '/dashboard';
             }
+            
+            // Role-based access control for admin routes
+            if (user != null && state.uri.path == '/admin') {
+              if (user.role != UserRole.admin) {
+                print('🛣️ [ROUTER] ⚠️ Non-admin user attempting to access admin page, redirecting to /dashboard');
+                return '/dashboard';
+              }
+              print('🛣️ [ROUTER] ✅ Admin user accessing admin page');
+            }
+            
+            // Role-based access control for other specific routes
+            if (user != null) {
+              // Check if user is trying to access routes they shouldn't
+              final currentPath = state.uri.path;
+              
+              // Admin-only routes
+              if (currentPath.startsWith('/admin') && user.role != UserRole.admin) {
+                print('🛣️ [ROUTER] ⚠️ User ${user.role} cannot access admin routes, redirecting to /dashboard');
+                return '/dashboard';
+              }
+              
+              // Test routes - only allow for development
+              if ((currentPath == '/test-single-assignment' || currentPath == '/test-all-changes')) {
+                // Allow access for now, but log it
+                print('🛣️ [ROUTER] ⚠️ User accessing test route: $currentPath');
+              }
+            }
+            
             print('🛣️ [ROUTER] No redirect needed');
             return null;
           },
@@ -117,6 +150,27 @@ class ReFabApp extends ConsumerWidget {
           builder: (context, state) {
             print('🛣️ [ROUTER] Building AdminPage');
             return const AdminPage();
+          },
+        ),
+        GoRoute(
+          path: '/test-single-assignment',
+          builder: (context, state) {
+            print('🛣️ [ROUTER] Building SingleAssignmentTestWidget');
+            return const SingleAssignmentTestWidget();
+          },
+        ),
+        GoRoute(
+          path: '/test-all-changes',
+          builder: (context, state) {
+            print('🛣️ [ROUTER] Building AllChangesTestWidget');
+            return const AllChangesTestWidget();
+          },
+        ),
+        GoRoute(
+          path: '/test-registration-routing',
+          builder: (context, state) {
+            print('🛣️ [ROUTER] Building RegistrationRoutingTest');
+            return const RegistrationRoutingTest();
           },
         ),
       ],

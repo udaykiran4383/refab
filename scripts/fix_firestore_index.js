@@ -1,95 +1,216 @@
-#!/usr/bin/env node
+// Firestore Index Fix Script
+// This script helps you create the required Firestore composite indexes
 
-/**
- * Quick Firestore Index Fix Script
- * 
- * When you get a Firestore index error, this script helps you create the required index.
- * Usage: node scripts/fix_firestore_index.js "your_error_link_here"
- */
+console.log('🔥 Firestore Index Fix Script');
+console.log('=============================\n');
 
-const readline = require('readline');
+console.log('❌ You are getting Firestore index errors because your queries require composite indexes.');
+console.log('Here\'s how to fix them:\n');
 
-function extractIndexInfo(errorLink) {
-  // Extract collection and fields from the error link
-  const url = new URL(errorLink);
-  const queryParams = url.searchParams;
-  
-  const collection = queryParams.get('collection_id');
-  const fields = queryParams.get('fields');
-  
-  if (!collection || !fields) {
-    console.log('❌ Could not extract index information from the provided link.');
-    console.log('Please make sure you copied the complete error link from Firebase.');
-    return null;
-  }
-  
-  // Parse the fields parameter
-  const fieldList = fields.split(',').map(field => {
-    const [fieldPath, order] = field.split(':');
-    return { fieldPath, order: order === 'asc' ? 'ASCENDING' : 'DESCENDING' };
-  });
-  
-  return { collection, fields: fieldList };
+console.log('📋 REQUIRED INDEXES:\n');
+
+console.log('1. warehouseWorkers Collection:');
+console.log('   - warehouseId (ASCENDING)');
+console.log('   - createdAt (DESCENDING)');
+console.log('   - __name__ (ASCENDING)\n');
+
+console.log('2. processingTasks Collection:');
+console.log('   - warehouseId (ASCENDING)');
+console.log('   - createdAt (DESCENDING)');
+console.log('   - __name__ (ASCENDING)\n');
+
+console.log('3. inventory Collection:');
+console.log('   - warehouseId (ASCENDING)');
+console.log('   - createdAt (DESCENDING)');
+console.log('   - __name__ (ASCENDING)\n');
+
+console.log('4. warehouseLocations Collection:');
+console.log('   - warehouseId (ASCENDING)');
+console.log('   - createdAt (DESCENDING)');
+console.log('   - __name__ (ASCENDING)\n');
+
+console.log('🚀 HOW TO CREATE THESE INDEXES:\n');
+
+console.log('Option 1: Firebase Console (Recommended)');
+console.log('1. Go to: https://console.firebase.google.com/project/refab-app/firestore/indexes');
+console.log('2. Click "Create Index"');
+console.log('3. For each collection above:');
+console.log('   - Collection ID: [collection name]');
+console.log('   - Fields: Add the fields in the exact order shown');
+console.log('   - Order: Set to ASCENDING or DESCENDING as specified');
+console.log('4. Click "Create"');
+console.log('5. Wait for indexes to build (1-2 minutes)\n');
+
+console.log('Option 2: Firebase CLI');
+console.log('1. Install Firebase CLI: npm install -g firebase-tools');
+console.log('2. Login: firebase login');
+console.log('3. Initialize: firebase init firestore');
+console.log('4. Deploy indexes: firebase deploy --only firestore:indexes\n');
+
+console.log('📁 I\'ve created firestore.indexes.json with all the required indexes.');
+console.log('You can use this file with Firebase CLI or copy the configurations manually.\n');
+
+console.log('⚠️  IMPORTANT NOTES:');
+console.log('- Indexes must be built before your queries will work');
+console.log('- You can monitor build progress in Firebase Console');
+console.log('- If you get more index errors, repeat this process for each one');
+console.log('- The __name__ field is automatically added by Firestore for ordering\n');
+
+console.log('🔗 Direct Links:');
+console.log('- Firebase Console: https://console.firebase.google.com/project/refab-app/firestore/indexes');
+console.log('- Firebase CLI Docs: https://firebase.google.com/docs/firestore/query-data/indexing');
+
+// Generate the indexes configuration
+function generateFirestoreIndexesFile() {
+  const indexesConfig = {
+    indexes: [
+      {
+        collectionGroup: "warehouseWorkers",
+        queryScope: "COLLECTION",
+        fields: [
+          { fieldPath: "warehouseId", order: "ASCENDING" },
+          { fieldPath: "createdAt", order: "DESCENDING" },
+          { fieldPath: "__name__", order: "ASCENDING" }
+        ]
+      },
+      {
+        collectionGroup: "warehouseWorkers",
+        queryScope: "COLLECTION",
+        fields: [
+          { fieldPath: "warehouseId", order: "ASCENDING" },
+          { fieldPath: "status", order: "ASCENDING" },
+          { fieldPath: "createdAt", order: "DESCENDING" },
+          { fieldPath: "__name__", order: "ASCENDING" }
+        ]
+      },
+      {
+        collectionGroup: "warehouseWorkers",
+        queryScope: "COLLECTION",
+        fields: [
+          { fieldPath: "warehouseId", order: "ASCENDING" },
+          { fieldPath: "role", order: "ASCENDING" },
+          { fieldPath: "createdAt", order: "DESCENDING" },
+          { fieldPath: "__name__", order: "ASCENDING" }
+        ]
+      },
+      {
+        collectionGroup: "processingTasks",
+        queryScope: "COLLECTION",
+        fields: [
+          { fieldPath: "warehouseId", order: "ASCENDING" },
+          { fieldPath: "createdAt", order: "DESCENDING" },
+          { fieldPath: "__name__", order: "ASCENDING" }
+        ]
+      },
+      {
+        collectionGroup: "processingTasks",
+        queryScope: "COLLECTION",
+        fields: [
+          { fieldPath: "warehouseId", order: "ASCENDING" },
+          { fieldPath: "status", order: "ASCENDING" },
+          { fieldPath: "createdAt", order: "DESCENDING" },
+          { fieldPath: "__name__", order: "ASCENDING" }
+        ]
+      },
+      {
+        collectionGroup: "processingTasks",
+        queryScope: "COLLECTION",
+        fields: [
+          { fieldPath: "warehouseId", order: "ASCENDING" },
+          { fieldPath: "assignedWorkerId", order: "ASCENDING" },
+          { fieldPath: "createdAt", order: "DESCENDING" },
+          { fieldPath: "__name__", order: "ASCENDING" }
+        ]
+      },
+      {
+        collectionGroup: "processingTasks",
+        queryScope: "COLLECTION",
+        fields: [
+          { fieldPath: "warehouseId", order: "ASCENDING" },
+          { fieldPath: "taskType", order: "ASCENDING" },
+          { fieldPath: "createdAt", order: "DESCENDING" },
+          { fieldPath: "__name__", order: "ASCENDING" }
+        ]
+      },
+      {
+        collectionGroup: "inventory",
+        queryScope: "COLLECTION",
+        fields: [
+          { fieldPath: "warehouseId", order: "ASCENDING" },
+          { fieldPath: "createdAt", order: "DESCENDING" },
+          { fieldPath: "__name__", order: "ASCENDING" }
+        ]
+      },
+      {
+        collectionGroup: "inventory",
+        queryScope: "COLLECTION",
+        fields: [
+          { fieldPath: "warehouseId", order: "ASCENDING" },
+          { fieldPath: "status", order: "ASCENDING" },
+          { fieldPath: "createdAt", order: "DESCENDING" },
+          { fieldPath: "__name__", order: "ASCENDING" }
+        ]
+      },
+      {
+        collectionGroup: "inventory",
+        queryScope: "COLLECTION",
+        fields: [
+          { fieldPath: "warehouseId", order: "ASCENDING" },
+          { fieldPath: "fabricCategory", order: "ASCENDING" },
+          { fieldPath: "createdAt", order: "DESCENDING" },
+          { fieldPath: "__name__", order: "ASCENDING" }
+        ]
+      },
+      {
+        collectionGroup: "inventory",
+        queryScope: "COLLECTION",
+        fields: [
+          { fieldPath: "warehouseId", order: "ASCENDING" },
+          { fieldPath: "qualityGrade", order: "ASCENDING" },
+          { fieldPath: "createdAt", order: "DESCENDING" },
+          { fieldPath: "__name__", order: "ASCENDING" }
+        ]
+      },
+      {
+        collectionGroup: "warehouseLocations",
+        queryScope: "COLLECTION",
+        fields: [
+          { fieldPath: "warehouseId", order: "ASCENDING" },
+          { fieldPath: "createdAt", order: "DESCENDING" },
+          { fieldPath: "__name__", order: "ASCENDING" }
+        ]
+      },
+      {
+        collectionGroup: "warehouseLocations",
+        queryScope: "COLLECTION",
+        fields: [
+          { fieldPath: "warehouseId", order: "ASCENDING" },
+          { fieldPath: "status", order: "ASCENDING" },
+          { fieldPath: "createdAt", order: "DESCENDING" },
+          { fieldPath: "__name__", order: "ASCENDING" }
+        ]
+      },
+      {
+        collectionGroup: "warehouseLocations",
+        queryScope: "COLLECTION",
+        fields: [
+          { fieldPath: "warehouseId", order: "ASCENDING" },
+          { fieldPath: "type", order: "ASCENDING" },
+          { fieldPath: "createdAt", order: "DESCENDING" },
+          { fieldPath: "__name__", order: "ASCENDING" }
+        ]
+      }
+    ],
+    fieldOverrides: []
+  };
+
+  return JSON.stringify(indexesConfig, null, 2);
 }
 
-function displayIndexInstructions(indexInfo) {
-  console.log('🔥 Firestore Index Fix Instructions\n');
-  console.log(`📋 Required Index for Collection: ${indexInfo.collection}\n`);
-  console.log('Fields to add:');
-  indexInfo.fields.forEach((field, i) => {
-    console.log(`  ${i + 1}. ${field.fieldPath} (${field.order})`);
-  });
-  console.log('');
-  
-  console.log('🚀 Steps to Create the Index:\n');
-  console.log('1. Go to Firebase Console → Firestore Database → Indexes');
-  console.log('2. Click "Create Index"');
-  console.log('3. Configure the index:');
-  console.log(`   - Collection ID: ${indexInfo.collection}`);
-  console.log('   - Fields: Add each field in the exact order shown above');
-  console.log('   - Order: Set to ASCENDING or DESCENDING as specified');
-  console.log('4. Click "Create"');
-  console.log('5. Wait for the index to build (usually 1-2 minutes)');
-  console.log('6. Once status shows "Enabled", your app will work!');
-  console.log('');
-  
-  console.log('⚠️  Important:');
-  console.log('- The index must be built before your query will work');
-  console.log('- You can monitor the build progress in the Firebase Console');
-  console.log('- If you get more index errors, repeat this process for each one');
-  console.log('');
-  
-  console.log('🔗 Firebase Console:');
-  console.log('https://console.firebase.google.com/project/YOUR_PROJECT_ID/firestore/indexes');
-}
+console.log('\n📄 Generated firestore.indexes.json content:');
+console.log('==========================================');
+console.log(generateFirestoreIndexesFile());
 
-function main() {
-  const rl = readline.createInterface({
-    input: process.stdin,
-    output: process.stdout
-  });
-  
-  console.log('🔥 Firestore Index Error Fixer\n');
-  console.log('This script helps you create the required Firestore index when you get an error.\n');
-  
-  rl.question('📋 Paste the error link from Firebase here: ', (errorLink) => {
-    rl.close();
-    
-    if (!errorLink || errorLink.trim() === '') {
-      console.log('❌ No error link provided. Please run the script again with a valid link.');
-      return;
-    }
-    
-    const indexInfo = extractIndexInfo(errorLink.trim());
-    if (indexInfo) {
-      displayIndexInstructions(indexInfo);
-    }
-  });
-}
-
-// Run the script
-if (require.main === module) {
-  main();
-}
-
-module.exports = { extractIndexInfo, displayIndexInstructions }; 
+module.exports = {
+  generateFirestoreIndexesFile
+}; 

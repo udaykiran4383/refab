@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../providers/admin_provider.dart';
+import '../../providers/admin_provider.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 
 class PickupRequestsPage extends ConsumerStatefulWidget {
   const PickupRequestsPage({super.key});
@@ -10,39 +11,83 @@ class PickupRequestsPage extends ConsumerStatefulWidget {
 }
 
 class _PickupRequestsPageState extends ConsumerState<PickupRequestsPage> {
-  String _selectedStatus = 'All';
+  String _selectedStatus = 'all';
+  String _searchQuery = '';
 
   @override
   Widget build(BuildContext context) {
-    final pickups = ref.watch(allPickupRequestsProvider);
+    final pickupRequests = ref.watch(pickupRequestsStreamProvider);
 
-    return Padding(
-      padding: const EdgeInsets.all(16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('All Pickup Requests'),
+        backgroundColor: Colors.blue[600],
+        foregroundColor: Colors.white,
+        elevation: 0,
+      ),
+      body: Column(
         children: [
-          Row(
-            children: [
-              Icon(Icons.local_shipping, color: Theme.of(context).primaryColor, size: 32),
-              const SizedBox(width: 12),
-              Text('Pickup Requests', style: Theme.of(context).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.bold)),
-            ],
+          // Filters
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.grey.withOpacity(0.1),
+                  blurRadius: 4,
+                  offset: const Offset(0, 2),
+                ),
+              ],
+            ),
+            child: Column(
+              children: [
+                // Search
+                SizedBox(
+                  width: 180,
+                  child: TextField(
+                    onChanged: (value) => setState(() => _searchQuery = value),
+                    decoration: InputDecoration(
+                      hintText: 'Search by customer name...',
+                      prefixIcon: const Icon(Icons.search, size: 18),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      filled: true,
+                      fillColor: Colors.grey[50],
+                      isDense: true,
+                      contentPadding: const EdgeInsets.symmetric(vertical: 8, horizontal: 8),
+                    ),
+                    style: const TextStyle(fontSize: 13),
+                  ),
+                ),
+                const SizedBox(height: 12),
+                // Status filter
+                Wrap(
+                  crossAxisAlignment: WrapCrossAlignment.center,
+                  spacing: 8,
+                  runSpacing: 4,
+                  children: [
+                    const Text('Status: ', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                    _buildStatusChip('all', 'All'),
+                    _buildStatusChip('pending', 'Pending'),
+                    _buildStatusChip('requested', 'Requested'),
+                    _buildStatusChip('assigned', 'Assigned'),
+                    _buildStatusChip('completed', 'Completed'),
+                    _buildStatusChip('delivered', 'Delivered'),
+                  ],
+                ),
+              ],
+            ),
           ),
-          const SizedBox(height: 24),
-          _buildFilters(),
-          const SizedBox(height: 16),
+          // Requests list
           Expanded(
-            child: pickups.when(
-              data: (pickupsList) {
-                final filtered = pickupsList.where((p) => _selectedStatus == 'All' || p['status'] == _selectedStatus).toList();
-                if (filtered.isEmpty) return const Center(child: Text('No pickup requests found'));
-                return ListView.builder(
-                  itemCount: filtered.length,
-                  itemBuilder: (context, index) => _buildPickupCard(context, filtered[index]),
-                );
-              },
+            child: pickupRequests.when(
+              data: (requests) => _buildRequestsList(requests),
               loading: () => const Center(child: CircularProgressIndicator()),
-              error: (error, stack) => Center(child: Text('Error: $error')),
+              error: (error, stack) => Center(
+                child: Text('Error: $error'),
+              ),
             ),
           ),
         ],
@@ -50,134 +95,215 @@ class _PickupRequestsPageState extends ConsumerState<PickupRequestsPage> {
     );
   }
 
-  Widget _buildFilters() {
+  Widget _buildStatusChip(String status, String label) {
+    final isSelected = _selectedStatus == status;
+    return FilterChip(
+      label: Text(label),
+      selected: isSelected,
+      onSelected: (selected) {
+        setState(() {
+          _selectedStatus = status;
+        });
+      },
+      backgroundColor: Colors.grey[200],
+      selectedColor: Colors.blue[100],
+      checkmarkColor: Colors.blue[600],
+    );
+  }
+
+  Widget _buildRequestsList(List<Map<String, dynamic>> requests) {
+    // Filter requests
+    final filteredRequests = requests.where((request) {
+      final matchesStatus = _selectedStatus == 'all' || 
+                           request['status'] == _selectedStatus;
+      
+      final matchesSearch = _searchQuery.isEmpty ||
+                           (request['customer_name'] ?? '')
+                               .toString()
+                               .toLowerCase()
+                               .contains(_searchQuery.toLowerCase());
+      
+      return matchesStatus && matchesSearch;
+    }).toList();
+
+    if (filteredRequests.isEmpty) {
+      return const Center(
+        child: Text(
+          'No pickup requests found',
+          style: TextStyle(fontSize: 16, color: Colors.grey),
+        ),
+      );
+    }
+
+    return ListView.builder(
+      padding: const EdgeInsets.all(16),
+      itemCount: filteredRequests.length,
+      itemBuilder: (context, index) {
+        final request = filteredRequests[index];
+        return _buildRequestCard(request);
+      },
+    );
+  }
+
+  Widget _buildRequestCard(Map<String, dynamic> request) {
+    final status = request['status'] ?? 'unknown';
+    final customerName = request['customer_name'] ?? 'Unknown';
+    final createdAt = request['created_at'];
+    final requestId = request['id'];
+
     return Card(
+      margin: const EdgeInsets.only(bottom: 12),
+      elevation: 2,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       child: Padding(
         padding: const EdgeInsets.all(16),
-        child: DropdownButtonFormField<String>(
-          decoration: const InputDecoration(labelText: 'Status', border: OutlineInputBorder()),
-          value: _selectedStatus,
-          items: ['All', 'pending', 'assigned', 'completed', 'cancelled'].map((status) => DropdownMenuItem(value: status, child: Text(status.toUpperCase()))).toList(),
-          onChanged: (value) => setState(() => _selectedStatus = value!),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildPickupCard(BuildContext context, Map<String, dynamic> pickup) {
-    return Card(
-      margin: const EdgeInsets.only(bottom: 8),
-      child: ListTile(
-        leading: CircleAvatar(backgroundColor: _getStatusColor(pickup['status']), child: Icon(Icons.local_shipping, color: Colors.white)),
-        title: Text('Pickup #${pickup['id']?.toString().substring(0, 8) ?? 'Unknown'}', style: const TextStyle(fontWeight: FontWeight.bold)),
-        subtitle: Column(
+        child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('Customer: ${pickup['customer_name'] ?? 'Unknown'}'),
-            Text('Weight: ${pickup['estimated_weight'] ?? 'N/A'} kg'),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-              decoration: BoxDecoration(color: _getStatusColor(pickup['status']).withOpacity(0.2), borderRadius: BorderRadius.circular(12)),
-              child: Text(pickup['status']?.toString().toUpperCase() ?? 'UNKNOWN', style: TextStyle(fontSize: 10, color: _getStatusColor(pickup['status']), fontWeight: FontWeight.bold)),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Expanded(
+                  child: Text(
+                    customerName,
+                    style: const TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
+                _buildStatusBadge(status),
+              ],
+            ),
+            const SizedBox(height: 8),
+            if (createdAt != null) ...[
+              Text(
+                'Created: ${_formatDate(createdAt)}',
+                style: TextStyle(
+                  color: Colors.grey[600],
+                  fontSize: 14,
+                ),
+              ),
+              const SizedBox(height: 8),
+            ],
+            Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    'Request ID: ${requestId ?? 'N/A'}',
+                    style: TextStyle(
+                      color: Colors.grey[600],
+                      fontSize: 14,
+                    ),
+                  ),
+                ),
+                if (status == 'pending' || status == 'requested') ...[
+                  const SizedBox(width: 8),
+                  ElevatedButton(
+                    onPressed: () => _updateStatus(requestId, 'assigned'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.blue[600],
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                    ),
+                    child: const Text('Assign'),
+                  ),
+                ],
+                if (status == 'assigned') ...[
+                  const SizedBox(width: 8),
+                  ElevatedButton(
+                    onPressed: () => _updateStatus(requestId, 'completed'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.green[600],
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                    ),
+                    child: const Text('Complete'),
+                  ),
+                ],
+              ],
             ),
           ],
         ),
-        trailing: PopupMenuButton(
-          itemBuilder: (context) => [
-            const PopupMenuItem(value: 'view', child: Text('View Details')),
-            const PopupMenuItem(value: 'update_status', child: Text('Update Status')),
-          ],
-          onSelected: (value) => _handlePickupAction(context, pickup, value),
-        ),
       ),
     );
   }
 
-  Color _getStatusColor(String? status) {
-    switch (status?.toLowerCase()) {
-      case 'pending': return Colors.orange;
-      case 'assigned': return Colors.blue;
-      case 'completed': return Colors.green;
-      case 'cancelled': return Colors.red;
-      default: return Colors.grey;
-    }
-  }
+  Widget _buildStatusBadge(String status) {
+    Color color;
+    String label;
 
-  void _handlePickupAction(BuildContext context, Map<String, dynamic> pickup, String action) {
-    switch (action) {
-      case 'view':
-        _showPickupDetails(context, pickup);
+    switch (status) {
+      case 'pending':
+      case 'requested':
+        color = Colors.orange;
+        label = 'Pending';
         break;
-      case 'update_status':
-        _showUpdateStatusDialog(context, pickup);
+      case 'assigned':
+        color = Colors.blue;
+        label = 'Assigned';
         break;
+      case 'completed':
+        color = Colors.green;
+        label = 'Completed';
+        break;
+      case 'delivered':
+        color = Colors.purple;
+        label = 'Delivered';
+        break;
+      default:
+        color = Colors.grey;
+        label = 'Unknown';
     }
-  }
 
-  void _showPickupDetails(BuildContext context, Map<String, dynamic> pickup) {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: Text('Pickup Details - #${pickup['id']?.toString().substring(0, 8)}'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text('Customer: ${pickup['customer_name']}'),
-            Text('Weight: ${pickup['estimated_weight']} kg'),
-            Text('Status: ${pickup['status']}'),
-            Text('Created: ${_formatDate(pickup['created_at'])}'),
-          ],
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+      decoration: BoxDecoration(
+        color: color.withOpacity(0.1),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: color),
+      ),
+      child: Text(
+        label,
+        style: TextStyle(
+          color: color,
+          fontSize: 12,
+          fontWeight: FontWeight.bold,
         ),
-        actions: [TextButton(onPressed: () => Navigator.of(context).pop(), child: const Text('Close'))],
       ),
     );
   }
 
-  void _showUpdateStatusDialog(BuildContext context, Map<String, dynamic> pickup) {
-    String selectedStatus = pickup['status'] ?? 'pending';
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Update Status'),
-        content: DropdownButtonFormField<String>(
-          value: selectedStatus,
-          items: ['pending', 'assigned', 'completed', 'cancelled'].map((status) => DropdownMenuItem(value: status, child: Text(status.toUpperCase()))).toList(),
-          onChanged: (value) => selectedStatus = value!,
-        ),
-        actions: [
-          TextButton(onPressed: () => Navigator.of(context).pop(), child: const Text('Cancel')),
-          TextButton(
-            onPressed: () {
-              ref.read(adminRepositoryProvider).updatePickupStatus(pickup['id'], selectedStatus);
-              Navigator.of(context).pop();
-            },
-            child: const Text('Update'),
-          ),
-        ],
-      ),
-    );
+  String _formatDate(dynamic date) {
+    if (date is Timestamp) {
+      return '${date.toDate().day}/${date.toDate().month}/${date.toDate().year}';
+    }
+    return 'Unknown';
   }
 
-  String _formatDate(String? dateString) {
-    if (dateString == null) return 'Unknown';
+  Future<void> _updateStatus(String? requestId, String newStatus) async {
+    if (requestId == null) return;
+
     try {
-      final date = DateTime.parse(dateString);
-      return '${date.day}/${date.month}/${date.year}';
+      await ref.read(updatePickupStatusProvider({'requestId': requestId, 'status': newStatus}).future);
+      
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Status updated to $newStatus'),
+            backgroundColor: Colors.green,
+          ),
+        );
+      }
     } catch (e) {
-      return 'Invalid date';
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error updating status: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
     }
   }
-}
-
-final allPickupRequestsProvider = StreamProvider<List<Map<String, dynamic>>>((ref) {
-  print('🔥 [ADMIN_PICKUP_PROVIDER] Setting up pickup requests stream...');
-  final repository = ref.read(adminRepositoryProvider);
-  return repository.getAllPickupRequests().map((requests) {
-    print('🔥 [ADMIN_PICKUP_PROVIDER] Received ${requests.length} pickup requests');
-    for (final request in requests) {
-      print('🔥 [ADMIN_PICKUP_PROVIDER] Request: ${request['id']} - ${request['customer_name']} - ${request['status']}');
-    }
-    return requests;
-  });
-}); 
+} 

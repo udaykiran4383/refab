@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../providers/admin_provider.dart';
+import '../../providers/admin_provider.dart';
 
 class OrdersPage extends ConsumerStatefulWidget {
   const OrdersPage({super.key});
@@ -30,10 +30,13 @@ class _OrdersPageState extends ConsumerState<OrdersPage> {
                 size: 32,
               ),
               const SizedBox(width: 12),
-              Text(
-                'Order Management',
-                style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                  fontWeight: FontWeight.bold,
+              Expanded(
+                child: Text(
+                  'Order Management',
+                  style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                    fontWeight: FontWeight.bold,
+                  ),
+                  overflow: TextOverflow.ellipsis,
                 ),
               ),
             ],
@@ -79,23 +82,32 @@ class _OrdersPageState extends ConsumerState<OrdersPage> {
     return Card(
       child: Padding(
         padding: const EdgeInsets.all(16),
-        child: DropdownButtonFormField<String>(
-          decoration: const InputDecoration(
-            labelText: 'Status',
-            border: OutlineInputBorder(),
+        child: SizedBox(
+          width: 140,
+          child: DropdownButtonFormField<String>(
+            decoration: const InputDecoration(
+              labelText: 'Status',
+              border: OutlineInputBorder(),
+              isDense: true,
+              contentPadding: EdgeInsets.symmetric(vertical: 8, horizontal: 8),
+            ),
+            value: _selectedStatus,
+            items: ['All', 'pending', 'processing', 'shipped', 'delivered', 'cancelled'].map((status) {
+              return DropdownMenuItem(
+                value: status,
+                child: Text(
+                  status.toUpperCase(),
+                  style: const TextStyle(fontSize: 12, color: Colors.green, fontWeight: FontWeight.bold),
+                ),
+              );
+            }).toList(),
+            onChanged: (value) {
+              setState(() {
+                _selectedStatus = value!;
+              });
+            },
+            style: const TextStyle(fontSize: 12, color: Colors.green, fontWeight: FontWeight.bold),
           ),
-          value: _selectedStatus,
-          items: ['All', 'pending', 'processing', 'shipped', 'delivered', 'cancelled'].map((status) {
-            return DropdownMenuItem(
-              value: status,
-              child: Text(status.toUpperCase()),
-            );
-          }).toList(),
-          onChanged: (value) {
-            setState(() {
-              _selectedStatus = value!;
-            });
-          },
         ),
       ),
     );
@@ -120,12 +132,12 @@ class _OrdersPageState extends ConsumerState<OrdersPage> {
         subtitle: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('Customer: ${order['customerName'] ?? 'Unknown'}'),
+            Text('Customer: ${order['customer_name'] ?? 'Unknown'}'),
             const SizedBox(height: 4),
             Row(
               children: [
                 Text(
-                  '₹${order['totalAmount']?.toString() ?? '0'}',
+                  '₹${order['total_amount']?.toString() ?? '0'}',
                   style: const TextStyle(
                     fontWeight: FontWeight.bold,
                     color: Colors.green,
@@ -135,14 +147,14 @@ class _OrdersPageState extends ConsumerState<OrdersPage> {
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                   decoration: BoxDecoration(
-                    color: _getStatusColor(order['status']).withOpacity(0.2),
+                    color: Colors.green.withOpacity(0.2),
                     borderRadius: BorderRadius.circular(12),
                   ),
                   child: Text(
                     order['status']?.toString().toUpperCase() ?? 'UNKNOWN',
-                    style: TextStyle(
+                    style: const TextStyle(
                       fontSize: 10,
-                      color: _getStatusColor(order['status']),
+                      color: Colors.green,
                       fontWeight: FontWeight.bold,
                     ),
                   ),
@@ -215,13 +227,13 @@ class _OrdersPageState extends ConsumerState<OrdersPage> {
             children: [
               Text('Order ID: ${order['id']}'),
               const SizedBox(height: 8),
-              Text('Customer: ${order['customerName']}'),
+              Text('Customer: ${order['customer_name']}'),
               const SizedBox(height: 8),
-              Text('Total Amount: ₹${order['totalAmount']}'),
+              Text('Total Amount: ₹${order['total_amount']}'),
               const SizedBox(height: 8),
               Text('Status: ${order['status']}'),
               const SizedBox(height: 8),
-              Text('Order Date: ${_formatDate(order['orderDate'])}'),
+              Text('Order Date: ${_formatDate(order['order_date'])}'),
               if (order['updatedAt'] != null) ...[
                 const SizedBox(height: 8),
                 Text('Updated: ${_formatDate(order['updatedAt'])}'),
