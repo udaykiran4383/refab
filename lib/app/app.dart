@@ -13,6 +13,8 @@ import '../features/customer/presentation/pages/cart_page.dart';
 import '../test_single_assignment_in_app.dart';
 import '../test_all_changes_in_app.dart';
 import '../test_registration_routing.dart';
+import '../core/services/remote_config_service.dart';
+import '../shared/widgets/kill_switch_widget.dart';
 import 'theme.dart';
 import '../features/auth/data/models/user_model.dart';
 
@@ -22,6 +24,25 @@ class ReFabApp extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final authState = ref.watch(authStateProvider);
+    
+    // Check if app is disabled via remote config
+    if (RemoteConfigService.appDisabled) {
+      return MaterialApp(
+        title: 'ReFab',
+        theme: AppTheme.lightTheme,
+        home: KillSwitchWidget(
+          message: RemoteConfigService.killSwitchMessage,
+          onRetry: () {
+            // Refresh remote config and rebuild
+            RemoteConfigService.refresh().then((_) {
+              // Force rebuild
+              ref.invalidate(authStateProvider);
+            });
+          },
+        ),
+        debugShowCheckedModeBanner: false,
+      );
+    }
     
     return MaterialApp.router(
       title: 'ReFab',

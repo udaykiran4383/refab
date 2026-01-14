@@ -14,6 +14,8 @@ class RemoteConfigService {
     // Set default values
     await _remoteConfig.setDefaults({
       'maintenance_mode': false,
+      'app_disabled': false, // Kill switch parameter
+      'kill_switch_message': 'This app has been disabled by the developer.', // Kill switch message
       'min_app_version': '1.0.0',
       'api_base_url': 'https://your-api-url.com/api',
       'support_email': 'support@refab.com',
@@ -32,6 +34,11 @@ class RemoteConfigService {
     }
   }
 
+  // Kill switch getters
+  static bool get appDisabled => _remoteConfig.getBool('app_disabled');
+  static String get killSwitchMessage => _remoteConfig.getString('kill_switch_message');
+  
+  // Existing getters
   static bool get maintenanceMode => _remoteConfig.getBool('maintenance_mode');
   static String get minAppVersion => _remoteConfig.getString('min_app_version');
   static String get apiBaseUrl => _remoteConfig.getString('api_base_url');

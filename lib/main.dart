@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'firebase_options.dart';
 import 'app/app.dart';
+import 'core/services/remote_config_service.dart';
 
 void main() async {
   print('🚀 [MAIN] Starting ReFab app...');
@@ -30,6 +31,16 @@ void main() async {
       print('🚀 [MAIN] ❌ Critical Firebase error, rethrowing: $e');
       rethrow;
     }
+  }
+  
+  // Initialize remote config service for kill switch functionality
+  try {
+    print('🚀 [MAIN] Initializing remote config service...');
+    await RemoteConfigService.initialize();
+    print('🚀 [MAIN] ✅ Remote config service initialized');
+  } catch (e) {
+    print('🚀 [MAIN] ❌ Remote config initialization error: $e');
+    // Continue anyway, app will work without remote config
   }
   
   print('🚀 [MAIN] Starting app with ProviderScope...');
